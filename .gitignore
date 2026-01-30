@@ -17,5 +17,11 @@ packages/pipeline/data/pdfs/*
 packages/pipeline/data/chunks/*
 !packages/pipeline/data/**/.gitkeep
 
+# Eval reports
+eval-report.json
+
+# Supabase temp files
+packages/pipeline/supabase/.temp/
+
 # OS files
 .DS_Store

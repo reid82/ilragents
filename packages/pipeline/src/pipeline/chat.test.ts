@@ -102,6 +102,13 @@ describe('buildSystemPrompt', () => {
     expect(prompt).not.toContain('outside my wheelhouse');
     expect(prompt).toContain('ALWAYS attempt to answer');
   });
+
+  it('includes clarifying question instructions', () => {
+    const format = resolveResponseFormat();
+    const prompt = buildSystemPrompt('Baseline Ben', mockContext, format);
+    expect(prompt).toContain('WHEN TO ASK CLARIFYING QUESTIONS');
+    expect(prompt).toContain('never reply with only questions');
+  });
 });
 
 describe('AGENT_ALIASES', () => {

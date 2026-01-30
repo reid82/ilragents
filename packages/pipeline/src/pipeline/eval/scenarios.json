@@ -1,0 +1,347 @@
+[
+  {
+    "id": "baseline-ben-foundations",
+    "category": "baseline",
+    "agent": "Baseline Ben",
+    "profile": "sarah-first-timer",
+    "question": "What are the key things I need to understand before buying my first investment property?",
+    "rubric": {
+      "mustAddress": "fundamentals of property investment for beginners",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "baseline-ben-strategy",
+    "category": "baseline",
+    "agent": "Baseline Ben",
+    "profile": "james-growing-portfolio",
+    "question": "What strategy should I use to scale from 2 properties to 5?",
+    "rubric": {
+      "mustAddress": "portfolio growth strategy",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "finder-fred-sourcing",
+    "category": "baseline",
+    "agent": "Finder Fred",
+    "profile": "sarah-first-timer",
+    "question": "How do I find good investment properties in regional areas?",
+    "rubric": {
+      "mustAddress": "property sourcing strategies for regional markets",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "finder-fred-due-diligence",
+    "category": "baseline",
+    "agent": "Finder Fred",
+    "profile": "james-growing-portfolio",
+    "question": "What due diligence should I do before buying a property at auction?",
+    "rubric": {
+      "mustAddress": "due diligence process for auction purchases",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "coach-yield",
+    "category": "baseline",
+    "agent": "Investor Coach",
+    "profile": "mike-cash-flow",
+    "question": "How do I improve rental yield on my existing property?",
+    "rubric": {
+      "mustAddress": "rental yield improvement strategies",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "coach-subdivision",
+    "category": "baseline",
+    "agent": "Investor Coach",
+    "profile": "karen-high-equity",
+    "question": "What are the basic steps to subdivide a residential property?",
+    "rubric": {
+      "mustAddress": "subdivision process and steps",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "coach-tenancy",
+    "category": "baseline",
+    "agent": "Investor Coach",
+    "profile": "james-growing-portfolio",
+    "question": "How do I screen tenants effectively to minimise vacancies?",
+    "rubric": {
+      "mustAddress": "tenant screening and selection",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "deal-specialist-structures",
+    "category": "baseline",
+    "agent": "Deal Specialist",
+    "profile": "linda-asset-protection",
+    "question": "Should I hold investment properties in a trust or company structure?",
+    "rubric": {
+      "mustAddress": "trust vs company structures for property",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "deal-specialist-depreciation",
+    "category": "baseline",
+    "agent": "Deal Specialist",
+    "profile": "james-growing-portfolio",
+    "question": "How does tax depreciation work for investment properties?",
+    "rubric": {
+      "mustAddress": "tax depreciation schedules and benefits",
+      "mustNotDeflect": true
+    }
+  },
+  {
+    "id": "deal-specialist-jv",
+    "category": "baseline",
+    "agent": "Deal Specialist",
+    "profile": "karen-high-equity",
+    "question": "How do joint ventures work in property development?",
+    "rubric": {
+      "mustAddress": "joint venture structures and mechanics",
+      "mustNotDeflect": true
+    }
+  },
+
+  {
+    "id": "cross-coach-tax",
+    "category": "cross-domain",
+    "agent": "Investor Coach",
+    "profile": "james-growing-portfolio",
+    "question": "Can you explain how tax depreciation would benefit my portfolio?",
+    "rubric": {
+      "mustAddress": "tax depreciation in context of portfolio management",
+      "mustNotDeflect": true,
+      "note": "Depreciation is Deal Specialist territory but Coach should still help"
+    }
+  },
+  {
+    "id": "cross-coach-protection",
+    "category": "cross-domain",
+    "agent": "Investor Coach",
+    "profile": "linda-asset-protection",
+    "question": "What should I know about asset protection for my properties?",
+    "rubric": {
+      "mustAddress": "asset protection concepts relevant to portfolio",
+      "mustNotDeflect": true,
+      "note": "Asset protection is Deal Specialist territory but Coach should still help"
+    }
+  },
+  {
+    "id": "cross-deal-yield",
+    "category": "cross-domain",
+    "agent": "Deal Specialist",
+    "profile": "mike-cash-flow",
+    "question": "How can I improve the cash flow on my investment property?",
+    "rubric": {
+      "mustAddress": "cash flow improvement ideas",
+      "mustNotDeflect": true,
+      "note": "Yield is Coach territory but Deal Specialist should still help"
+    }
+  },
+  {
+    "id": "cross-fred-structures",
+    "category": "cross-domain",
+    "agent": "Finder Fred",
+    "profile": "linda-asset-protection",
+    "question": "Should I buy my next property in a trust?",
+    "rubric": {
+      "mustAddress": "some guidance on trust purchasing",
+      "mustNotDeflect": true,
+      "note": "Structures is Deal Specialist territory but Fred should still try to help"
+    }
+  },
+  {
+    "id": "cross-ben-strata",
+    "category": "cross-domain",
+    "agent": "Baseline Ben",
+    "profile": "sarah-first-timer",
+    "question": "What should I know about buying a unit in a strata complex as an investment?",
+    "rubric": {
+      "mustAddress": "strata investment considerations",
+      "mustNotDeflect": true,
+      "note": "Strata is Coach territory but Ben should still help a beginner"
+    }
+  },
+
+  {
+    "id": "mismatch-linda-yield",
+    "category": "profile-mismatch",
+    "agent": "Investor Coach",
+    "profile": "linda-asset-protection",
+    "question": "How do I calculate rental yield?",
+    "rubric": {
+      "mustAddress": "rental yield calculation",
+      "mustNotDeflect": true,
+      "mustNotFixateOn": "asset restructuring or trust structures"
+    }
+  },
+  {
+    "id": "mismatch-sarah-subdivision",
+    "category": "profile-mismatch",
+    "agent": "Investor Coach",
+    "profile": "sarah-first-timer",
+    "question": "I'm curious about subdivision - how does it work?",
+    "rubric": {
+      "mustAddress": "subdivision process",
+      "mustNotDeflect": true,
+      "mustNotFixateOn": "buying first property"
+    }
+  },
+  {
+    "id": "mismatch-mike-jv",
+    "category": "profile-mismatch",
+    "agent": "Deal Specialist",
+    "profile": "mike-cash-flow",
+    "question": "Could a joint venture help me get into development?",
+    "rubric": {
+      "mustAddress": "joint ventures and development",
+      "mustNotDeflect": true,
+      "mustNotFixateOn": "passive income or cash flow"
+    }
+  },
+  {
+    "id": "mismatch-karen-tenancy",
+    "category": "profile-mismatch",
+    "agent": "Investor Coach",
+    "profile": "karen-high-equity",
+    "question": "What are the rules around raising rent for existing tenants?",
+    "rubric": {
+      "mustAddress": "rent increase rules and process",
+      "mustNotDeflect": true,
+      "mustNotFixateOn": "subdivision or development"
+    }
+  },
+  {
+    "id": "mismatch-linda-sourcing",
+    "category": "profile-mismatch",
+    "agent": "Finder Fred",
+    "profile": "linda-asset-protection",
+    "question": "Where should I look for my next investment property?",
+    "rubric": {
+      "mustAddress": "property sourcing locations or strategies",
+      "mustNotDeflect": true,
+      "mustNotFixateOn": "restructuring or trusts"
+    }
+  },
+
+  {
+    "id": "clarify-coach-subdivide",
+    "category": "clarifying",
+    "agent": "Investor Coach",
+    "profile": "karen-high-equity",
+    "question": "Should I subdivide my property?",
+    "rubric": {
+      "mustAddress": "subdivision considerations",
+      "shouldAskClarifying": true,
+      "note": "Agent should ask about block size, zoning, location before giving specific advice"
+    }
+  },
+  {
+    "id": "clarify-deal-structure",
+    "category": "clarifying",
+    "agent": "Deal Specialist",
+    "profile": "james-growing-portfolio",
+    "question": "How should I structure my next purchase?",
+    "rubric": {
+      "mustAddress": "structuring options",
+      "shouldAskClarifying": true,
+      "note": "Agent should ask about goals, existing structures, and type of property before recommending"
+    }
+  },
+  {
+    "id": "clarify-fred-buy-where",
+    "category": "clarifying",
+    "agent": "Finder Fred",
+    "profile": "sarah-first-timer",
+    "question": "Where should I buy?",
+    "rubric": {
+      "mustAddress": "location selection factors",
+      "shouldAskClarifying": true,
+      "note": "Agent should ask about budget, strategy preference, distance tolerance before recommending areas"
+    }
+  },
+  {
+    "id": "no-clarify-depreciation",
+    "category": "clarifying",
+    "agent": "Deal Specialist",
+    "profile": "james-growing-portfolio",
+    "question": "How does tax depreciation work?",
+    "rubric": {
+      "mustAddress": "tax depreciation mechanics",
+      "shouldAskClarifying": false,
+      "note": "General knowledge question - should just answer, no clarification needed"
+    }
+  },
+
+  {
+    "id": "multiturn-coach-topic-switch",
+    "category": "multi-turn",
+    "agent": "Investor Coach",
+    "profile": "james-growing-portfolio",
+    "turns": [
+      {
+        "question": "How does equity recycling work?",
+        "rubric": {
+          "mustAddress": "equity recycling mechanics"
+        }
+      },
+      {
+        "question": "Actually, I wanted to ask about tenant screening instead. What should I look for in a good tenant?",
+        "rubric": {
+          "mustAddress": "tenant screening criteria",
+          "mustNotFixateOn": "equity recycling"
+        }
+      }
+    ]
+  },
+  {
+    "id": "multiturn-deal-topic-switch",
+    "category": "multi-turn",
+    "agent": "Deal Specialist",
+    "profile": "linda-asset-protection",
+    "turns": [
+      {
+        "question": "What trust structure would you recommend for holding property?",
+        "rubric": {
+          "mustAddress": "trust structures"
+        }
+      },
+      {
+        "question": "Switching topics - how does depreciation work on a newly built property?",
+        "rubric": {
+          "mustAddress": "depreciation on new builds",
+          "mustNotFixateOn": "trust structures"
+        }
+      }
+    ]
+  },
+  {
+    "id": "multiturn-fred-topic-switch",
+    "category": "multi-turn",
+    "agent": "Finder Fred",
+    "profile": "sarah-first-timer",
+    "turns": [
+      {
+        "question": "What suburbs should I be looking at for my first investment?",
+        "rubric": {
+          "mustAddress": "suburb selection criteria"
+        }
+      },
+      {
+        "question": "New question - what's the process for making an offer on a property?",
+        "rubric": {
+          "mustAddress": "offer process",
+          "mustNotFixateOn": "suburb selection"
+        }
+      }
+    ]
+  }
+]

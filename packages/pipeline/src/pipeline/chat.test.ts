@@ -89,10 +89,18 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('2-4 sentences');
   });
 
-  it('handles empty context', () => {
+  it('handles empty context without deflecting', () => {
     const format = resolveResponseFormat();
     const prompt = buildSystemPrompt('Baseline Ben', [], format);
-    expect(prompt).toContain('reference knowledge');
+    expect(prompt).toContain('general professional knowledge');
+    expect(prompt).not.toContain('Let the client know this isn\'t your area');
+  });
+
+  it('does not tell agent to deflect when context exists', () => {
+    const format = resolveResponseFormat();
+    const prompt = buildSystemPrompt('Baseline Ben', mockContext, format);
+    expect(prompt).not.toContain('outside my wheelhouse');
+    expect(prompt).toContain('ALWAYS attempt to answer');
   });
 });
 

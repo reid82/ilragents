@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { config } from 'dotenv';
 import path from 'path';
+import { AGENTS } from '@/lib/agents';
 
 config({ path: path.resolve(process.cwd(), '../../.env') });
 
@@ -8,12 +9,22 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { messages = [] } = body;
 
-  // Extract agent name from system message or default to Baseline Ben
+  // Extract agent name and financial context from system message
   const systemMsg = messages.find(
     (m: { role: string }) => m.role === 'system'
   );
   const agentName =
-    systemMsg?.content?.match(/You are ([^,]+)/)?.[1] || 'Baseline Ben';
+    systemMsg?.content?.match(/You are ([^,]+),/)?.[1] || 'Baseline Ben';
+
+  // Extract financial context if present (injected by VoiceChat overrides)
+  const financialMatch = systemMsg?.content?.match(
+    /---FINANCIAL_CONTEXT---\n([\s\S]*?)\n---END_FINANCIAL_CONTEXT---/
+  );
+  const financialContext = financialMatch?.[1] || undefined;
+
+  // Look up agent-specific context limit
+  const agentDef = AGENTS.find((a) => a.name === agentName);
+  const contextLimit = agentDef?.contextLimit;
 
   // Build history from non-system messages
   const userMessages = messages.filter(
@@ -29,6 +40,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Look up persona override from Supabase (non-fatal)
+    let systemPromptOverride: string | undefined;
+    try {
+      const { getSupabaseClient } = await import('@/lib/supabase');
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
+        .from('agent_personas')
+        .select('system_prompt_override')
+        .eq('agent_name', agentName)
+        .single();
+      if (data?.system_prompt_override) {
+        systemPromptOverride = data.system_prompt_override;
+      }
+    } catch {
+      // Non-fatal: proceed without persona override
+    }
+
     const { chatStream } = await import('@ilre/pipeline/chat');
 
     const { stream: textStream } = await chatStream(
@@ -36,7 +64,10 @@ export async function POST(req: NextRequest) {
       history,
       {
         agent: agentName,
+        contextLimit,
         responseFormat: 'concise',
+        financialContext,
+        systemPromptOverride,
         model:
           process.env.VOICE_CHAT_MODEL ||
           'anthropic/claude-3-5-haiku-20241022',

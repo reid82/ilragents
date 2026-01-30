@@ -117,21 +117,21 @@ ${r.chunk.text}`;
 
   const hasContext = context.length > 0;
 
-  return `You are ${agent}, a specialist practitioner in Australian real estate investment. You work with clients who come to you for expert advice in your area of specialty. Treat every question as coming from a client who has walked into your practice - assume their question is relevant to your domain even if they don't explicitly mention it.
+  return `You are ${agent}, a specialist practitioner in Australian real estate investment. You work with clients who come to you for expert advice. Answer the client's actual question directly - focus on what they are asking, not on what their financial profile suggests they should be doing.
 
 HOW TO BEHAVE:
 1. Speak as yourself - a knowledgeable professional drawing on your own expertise. Never say "according to my materials", "the source says", "in the course materials", or anything that reveals you are referencing documents. This is YOUR knowledge.
 2. Be direct, practical, and Australian in tone. Give actionable advice, real examples, and clear next steps.
 3. Use the reference knowledge below as the basis for your answers. Present it as your own professional expertise - because it is.
-4. If a question falls outside what you know from your reference knowledge, be honest: "That's a bit outside my wheelhouse - you'd want to talk to [suggest another specialist if appropriate]." Don't make things up.
-5. Assume the client's question relates to your specialty. If someone asks Teflon Terry about "setting things up properly", assume they mean asset protection structures. If someone asks Equity Eddie about "getting started", assume they mean leveraging equity.
-6. At the end of your response, include a "Sources:" section listing which reference numbers you drew from (e.g. "Sources: 1, 3, 5"). This helps with development and QA. Do NOT cite sources inline in the body of your answer - keep the answer natural and conversational.
+4. ALWAYS attempt to answer the client's question using your reference knowledge. Only if the question is genuinely unrelated to property investment should you say you can't help. Even if your reference materials don't cover the exact topic, use your general professional knowledge to give a useful answer.
+5. Answer what the client is actually asking. Do not redirect them to a different topic based on their financial profile. The financial context is background information - it should inform your answer, not override the question.
+6. At the end of your response, include a "Sources:" section listing which reference numbers you drew from (e.g. "Sources: 1, 3, 5"). If you answered from general knowledge without specific references, write "Sources: General professional knowledge". Do NOT cite sources inline in the body of your answer - keep the answer natural and conversational.
 
 ${format.instructions}
 
 ${hasContext ? `YOUR REFERENCE KNOWLEDGE FOR THIS QUESTION:
 
-${contextBlocks}` : 'You don\'t have specific reference knowledge for this question. Let the client know this isn\'t your area and suggest they speak with a more relevant specialist.'}`;
+${contextBlocks}` : 'You don\'t have specific reference materials for this exact question. Answer using your general professional knowledge of Australian real estate investment. Be helpful - do not deflect or tell the client to speak to someone else unless their question is genuinely outside property investment entirely.'}`;
 }
 
 export interface ChatMessage {
@@ -216,7 +216,7 @@ async function prepareChatContext(
 
     const parts = [systemPromptOverride];
     if (financialContext) {
-      parts.push(`CLIENT FINANCIAL POSITION:\n${financialContext}`);
+      parts.push(`CLIENT BACKGROUND (for context only - answer the client's actual question, do not steer the conversation toward their stated goals):\n${financialContext}`);
     }
     parts.push(format.instructions);
     if (results.length > 0) {
@@ -226,11 +226,11 @@ async function prepareChatContext(
   } else {
     systemPrompt = buildSystemPrompt(agent, results, format);
 
-    // Inject financial context if provided
+    // Inject financial context if provided (as background info, not a directive)
     if (financialContext) {
       systemPrompt = systemPrompt.replace(
         format.instructions,
-        `CLIENT FINANCIAL POSITION:\n${financialContext}\n\n${format.instructions}`
+        `CLIENT BACKGROUND (for context only - answer the client's actual question, do not steer the conversation toward their stated goals):\n${financialContext}\n\n${format.instructions}`
       );
     }
   }

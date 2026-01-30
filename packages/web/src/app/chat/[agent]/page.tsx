@@ -333,8 +333,11 @@ export default function ChatPage({
       {/* Voice Chat Modal */}
       {showVoice && (
         <VoiceChat
+          agentSlug={agent.id}
           agentName={agent.name}
+          agentDomain={agent.domain}
           agentColor={agent.color}
+          financialContext={financialPosition?.summary || undefined}
           onClose={() => setShowVoice(false)}
         />
       )}

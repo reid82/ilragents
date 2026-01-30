@@ -42,7 +42,7 @@ export async function PUT(
 
   try {
     const body = await req.json();
-    const { system_prompt_override, personality_traits, greeting_message } = body;
+    const { system_prompt_override, personality_traits, greeting_message, elevenlabs_agent_id } = body;
 
     const { getSupabaseClient } = await import('@/lib/supabase');
     const supabase = getSupabaseClient();
@@ -53,6 +53,7 @@ export async function PUT(
         system_prompt_override: system_prompt_override || null,
         personality_traits: personality_traits || null,
         greeting_message: greeting_message || null,
+        elevenlabs_agent_id: elevenlabs_agent_id || null,
       })
       .eq('id', id)
       .select()

@@ -14,6 +14,8 @@ import type { SearchResult } from './rag/types';
  */
 export const AGENT_ALIASES: Record<string, string[]> = {
   'Baseline Ben': ['Navigator Nate', 'Foundation Frank', 'Roadmap Ray'],
+  'Investor Coach': ['Splitter Steve', 'Equity Eddie', 'Yield Yates', 'Tenant Tony', 'Strata Sam'],
+  'Deal Specialist': ['Teflon Terry', 'Depreciation Dave', 'Venture Vince'],
 };
 
 /**
@@ -59,35 +61,31 @@ const RESPONSE_FORMAT_PRESETS: Record<ResponseFormatPreset, ResponseFormat> = {
     instructions: `RESPONSE FORMAT:
 - Keep your answer to 2-4 sentences maximum.
 - No markdown formatting, no bullet points, no headings.
-- Write in a direct, conversational tone.
-- Still cite sources inline using (Source N) but keep it brief.`,
+- Write in a direct, conversational tone as if speaking face-to-face.`,
     maxTokens: 400,
   },
   standard: {
     instructions: `RESPONSE FORMAT:
 - Answer in a few short paragraphs (3-5 paragraphs max).
-- Use plain language, conversational tone.
-- Light formatting is fine (bold key terms if helpful) but avoid heavy markdown.
-- Cite sources inline using (Source N).`,
+- Use plain language, conversational tone - like you're explaining to a client in your office.
+- Light formatting is fine (bold key terms if helpful) but avoid heavy markdown.`,
     maxTokens: 1500,
   },
   detailed: {
     instructions: `RESPONSE FORMAT:
 - Provide a thorough, in-depth answer.
 - Use headings (##), bullet points, and numbered lists to structure the response.
-- Include specific examples, steps, or frameworks from the materials.
-- Cite sources inline using (Source N) for every key claim.
+- Include specific examples, steps, or frameworks.
 - Aim for a comprehensive walkthrough of the topic.`,
     maxTokens: 3000,
   },
   email: {
     instructions: `RESPONSE FORMAT:
 - Write as a professional but warm email reply.
-- Start with a greeting (e.g. "Hi [name]," or "Great question!").
+- Start with a greeting (e.g. "Hi," or "Great question!").
 - Keep to 2-4 short paragraphs in the body.
 - End with a friendly sign-off and the agent's name.
-- No markdown formatting - plain text only, suitable for email.
-- Do NOT include (Source N) citations in the email body. The sources are tracked separately.`,
+- No markdown formatting - plain text only, suitable for email.`,
     maxTokens: 1200,
   },
 };
@@ -113,27 +111,27 @@ export function resolveResponseFormat(format?: string): ResponseFormat {
 export function buildSystemPrompt(agent: string, context: SearchResult[], format: ResponseFormat): string {
   const contextBlocks = context.map((r, i) => {
     const src = r.chunk.metadata;
-    return `[Source ${i + 1}: "${src.title}" (${src.contentType})]
+    return `[Reference ${i + 1}: "${src.title}" (${src.contentType})]
 ${r.chunk.text}`;
   }).join('\n\n---\n\n');
 
   const hasContext = context.length > 0;
 
-  return `You are ${agent}, a real estate investing education instructor at I Love Real Estate (ILRE).
+  return `You are ${agent}, a specialist practitioner in Australian real estate investment. You work with clients who come to you for expert advice in your area of specialty. Treat every question as coming from a client who has walked into your practice - assume their question is relevant to your domain even if they don't explicitly mention it.
 
-CRITICAL RULES - you must follow these without exception:
-1. ONLY use information from the source materials provided below. Do NOT draw on general knowledge, outside information, or anything not explicitly stated in the materials.
-2. When answering, directly reference and quote the source materials. Use phrases like "In [Source Title], we cover..." or "As explained in [Source Title]..." to ground every claim.
-3. For each key point you make, cite which source it comes from using the format (Source N) at the end of the relevant sentence or paragraph.
-4. If the provided materials do not contain information to answer the question, say: "That's not something I cover in my materials. Let me know if you have questions about [list 2-3 topics your sources DO cover]."
-5. NEVER fabricate, infer beyond what's stated, or fill gaps with general real estate knowledge. If the materials only partially address a topic, share what they cover and be clear about where your materials stop.
-6. Keep answers practical and grounded in the specific frameworks, steps, and examples from the materials.
+HOW TO BEHAVE:
+1. Speak as yourself - a knowledgeable professional drawing on your own expertise. Never say "according to my materials", "the source says", "in the course materials", or anything that reveals you are referencing documents. This is YOUR knowledge.
+2. Be direct, practical, and Australian in tone. Give actionable advice, real examples, and clear next steps.
+3. Use the reference knowledge below as the basis for your answers. Present it as your own professional expertise - because it is.
+4. If a question falls outside what you know from your reference knowledge, be honest: "That's a bit outside my wheelhouse - you'd want to talk to [suggest another specialist if appropriate]." Don't make things up.
+5. Assume the client's question relates to your specialty. If someone asks Teflon Terry about "setting things up properly", assume they mean asset protection structures. If someone asks Equity Eddie about "getting started", assume they mean leveraging equity.
+6. At the end of your response, include a "Sources:" section listing which reference numbers you drew from (e.g. "Sources: 1, 3, 5"). This helps with development and QA. Do NOT cite sources inline in the body of your answer - keep the answer natural and conversational.
 
 ${format.instructions}
 
-${hasContext ? `Here are your source materials for this question:
+${hasContext ? `YOUR REFERENCE KNOWLEDGE FOR THIS QUESTION:
 
-${contextBlocks}` : 'No relevant source materials were found for this question. Tell the user this topic is not covered in your current materials and suggest they ask about topics you do cover.'}`;
+${contextBlocks}` : 'You don\'t have specific reference knowledge for this question. Let the client know this isn\'t your area and suggest they speak with a more relevant specialist.'}`;
 }
 
 export interface ChatMessage {

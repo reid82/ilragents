@@ -1,10 +1,12 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { getAgentsByTable, getFacilitator } from "@/lib/agents";
+import { getAdvisors, getFacilitator } from "@/lib/agents";
 import type { AgentDef } from "@/lib/agents";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useFinancialStore } from "@/lib/stores/financial-store";
+import { TEST_PROFILES } from "@/lib/test-profiles";
 
 function AgentCard({ agent, locked }: { agent: AgentDef; locked?: boolean }) {
   const initials = agent.name
@@ -67,14 +69,10 @@ function AgentCard({ agent, locked }: { agent: AgentDef; locked?: boolean }) {
   );
 }
 
-function AgentTable({
-  title,
-  subtitle,
+function AdvisorGrid({
   agents,
   locked,
 }: {
-  title: string;
-  subtitle: string;
   agents: AgentDef[];
   locked?: boolean;
 }) {
@@ -82,14 +80,16 @@ function AgentTable({
     <section className="mb-12">
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
-          <h2 className="text-xl font-bold text-white">{title}</h2>
+          <h2 className="text-xl font-bold text-white">Your Advisors</h2>
           {locked && (
             <span className="text-xs bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full">
               Complete onboarding first
             </span>
           )}
         </div>
-        <p className="text-sm text-zinc-500">{subtitle}</p>
+        <p className="text-sm text-zinc-500">
+          Specialist advisors for sourcing, managing, and structuring property investments
+        </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {agents.map((agent) => (
@@ -102,10 +102,14 @@ function AgentTable({
 
 export default function HomePage() {
   const facilitator = getFacilitator();
-  const strategyAgents = getAgentsByTable("strategy");
-  const portfolioAgents = getAgentsByTable("portfolio");
+  const advisors = getAdvisors();
   const isOnboarded = useSessionStore((s) => s.isOnboarded);
   const setOnboarded = useSessionStore((s) => s.setOnboarded);
+  const setSessionId = useSessionStore((s) => s.setSessionId);
+  const setPosition = useFinancialStore((s) => s.setPosition);
+  const financialClear = useFinancialStore((s) => s.clear);
+  const currentPosition = useFinancialStore((s) => s.position);
+  const [showDevPanel, setShowDevPanel] = useState(false);
 
   // Hydration guard: Zustand persist reads from localStorage async
   const hydrated = useSyncExternalStore(
@@ -113,6 +117,21 @@ export default function HomePage() {
     () => true,
     () => false
   );
+
+  function activateProfile(profileId: string) {
+    const profile = TEST_PROFILES.find((p) => p.id === profileId);
+    if (!profile) return;
+    setPosition(profile.position);
+    setSessionId(`test-${profile.id}`);
+    setOnboarded(true);
+    setShowDevPanel(false);
+  }
+
+  function resetProfile() {
+    financialClear();
+    setOnboarded(false);
+    setShowDevPanel(false);
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -124,14 +143,53 @@ export default function HomePage() {
             Real estate investment specialists powered by I Love Real Estate
             materials
           </p>
-          {/* Dev toggle */}
+          {/* Dev tools */}
           {hydrated && (
-            <button
-              onClick={() => setOnboarded(!isOnboarded)}
-              className="mt-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-            >
-              [Dev: {isOnboarded ? "Lock tables" : "Unlock tables"}]
-            </button>
+            <div className="mt-2">
+              <button
+                onClick={() => setShowDevPanel(!showDevPanel)}
+                className="text-xs text-amber-500/70 hover:text-amber-400 transition-colors"
+              >
+                [Dev: Test Profiles{currentPosition ? ` - ${currentPosition.summary?.slice(0, 40)}...` : ''}]
+              </button>
+              {showDevPanel && (
+                <div className="mt-3 bg-zinc-900 border border-zinc-700 rounded-lg p-4 max-w-2xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-zinc-300">
+                      Select a test user profile
+                    </span>
+                    {isOnboarded && (
+                      <button
+                        onClick={resetProfile}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Reset / Lock
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {TEST_PROFILES.map((profile) => (
+                      <button
+                        key={profile.id}
+                        onClick={() => activateProfile(profile.id)}
+                        className={`text-left p-3 rounded-lg border transition-colors ${
+                          currentPosition?.summary === profile.position.summary
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-zinc-700 hover:border-zinc-500 bg-zinc-800/50'
+                        }`}
+                      >
+                        <div className="text-sm font-medium text-zinc-200">
+                          {profile.label}
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-0.5">
+                          {profile.description}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </header>
@@ -182,19 +240,9 @@ export default function HomePage() {
           </Link>
         </section>
 
-        {/* Investment Strategies Table */}
-        <AgentTable
-          title="Investment Strategies"
-          subtitle="Specialist agents for structuring and sourcing investments"
-          agents={strategyAgents}
-          locked={hydrated ? !isOnboarded : true}
-        />
-
-        {/* Portfolio Management Table */}
-        <AgentTable
-          title="Portfolio Management"
-          subtitle="Specialist agents for managing and growing your portfolio"
-          agents={portfolioAgents}
+        {/* Advisor Grid */}
+        <AdvisorGrid
+          agents={advisors}
           locked={hydrated ? !isOnboarded : true}
         />
       </main>

@@ -62,11 +62,25 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('You are Baseline Ben');
   });
 
-  it('includes source materials', () => {
+  it('frames agent as specialist practitioner', () => {
+    const format = resolveResponseFormat();
+    const prompt = buildSystemPrompt('Baseline Ben', mockContext, format);
+    expect(prompt).toContain('specialist practitioner');
+    expect(prompt).not.toContain('education instructor');
+  });
+
+  it('includes reference knowledge', () => {
     const format = resolveResponseFormat();
     const prompt = buildSystemPrompt('Baseline Ben', mockContext, format);
     expect(prompt).toContain('Test Video');
     expect(prompt).toContain('property investment');
+    expect(prompt).toContain('REFERENCE KNOWLEDGE');
+  });
+
+  it('includes sources section instruction for dev', () => {
+    const format = resolveResponseFormat();
+    const prompt = buildSystemPrompt('Baseline Ben', mockContext, format);
+    expect(prompt).toContain('Sources:');
   });
 
   it('includes format instructions', () => {
@@ -78,7 +92,7 @@ describe('buildSystemPrompt', () => {
   it('handles empty context', () => {
     const format = resolveResponseFormat();
     const prompt = buildSystemPrompt('Baseline Ben', [], format);
-    expect(prompt).toContain('No relevant source materials');
+    expect(prompt).toContain('reference knowledge');
   });
 });
 
@@ -90,7 +104,23 @@ describe('AGENT_ALIASES', () => {
     expect(AGENT_ALIASES['Baseline Ben']).toContain('Roadmap Ray');
   });
 
-  it('does not have aliases for other agents', () => {
-    expect(AGENT_ALIASES['Teflon Terry']).toBeUndefined();
+  it('maps Investor Coach to five agents', () => {
+    expect(AGENT_ALIASES['Investor Coach']).toHaveLength(5);
+    expect(AGENT_ALIASES['Investor Coach']).toContain('Splitter Steve');
+    expect(AGENT_ALIASES['Investor Coach']).toContain('Equity Eddie');
+    expect(AGENT_ALIASES['Investor Coach']).toContain('Yield Yates');
+    expect(AGENT_ALIASES['Investor Coach']).toContain('Tenant Tony');
+    expect(AGENT_ALIASES['Investor Coach']).toContain('Strata Sam');
+  });
+
+  it('maps Deal Specialist to three agents', () => {
+    expect(AGENT_ALIASES['Deal Specialist']).toHaveLength(3);
+    expect(AGENT_ALIASES['Deal Specialist']).toContain('Teflon Terry');
+    expect(AGENT_ALIASES['Deal Specialist']).toContain('Depreciation Dave');
+    expect(AGENT_ALIASES['Deal Specialist']).toContain('Venture Vince');
+  });
+
+  it('does not have aliases for Finder Fred', () => {
+    expect(AGENT_ALIASES['Finder Fred']).toBeUndefined();
   });
 });

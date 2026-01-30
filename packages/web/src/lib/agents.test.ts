@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { AGENTS, getAgentById, getAgentsByTable, getFacilitator } from './agents';
+import { AGENTS, getAgentById, getAdvisors, getFacilitator } from './agents';
 
 describe('agents', () => {
-  it('has 10 agents defined', () => {
-    expect(AGENTS).toHaveLength(10);
+  it('has 4 agents defined', () => {
+    expect(AGENTS).toHaveLength(4);
   });
 
   it('getAgentById returns correct agent', () => {
@@ -16,22 +16,16 @@ describe('agents', () => {
     expect(getAgentById('nonexistent')).toBeUndefined();
   });
 
-  it('getAgentsByTable returns strategy agents', () => {
-    const strategy = getAgentsByTable('strategy');
-    expect(strategy).toHaveLength(5);
-    expect(strategy.every((a) => a.table === 'strategy')).toBe(true);
-  });
-
-  it('getAgentsByTable returns portfolio agents', () => {
-    const portfolio = getAgentsByTable('portfolio');
-    expect(portfolio).toHaveLength(4);
-    expect(portfolio.every((a) => a.table === 'portfolio')).toBe(true);
+  it('getAdvisors returns non-facilitator agents', () => {
+    const advisors = getAdvisors();
+    expect(advisors).toHaveLength(3);
+    expect(advisors.every((a) => !a.isFacilitator)).toBe(true);
   });
 
   it('getFacilitator returns Baseline Ben', () => {
     const facilitator = getFacilitator();
     expect(facilitator.id).toBe('baseline-ben');
-    expect(facilitator.table).toBe('facilitator');
+    expect(facilitator.isFacilitator).toBe(true);
     expect(facilitator.name).toBe('Baseline Ben');
   });
 
@@ -43,6 +37,19 @@ describe('agents', () => {
       expect(agent.description).toBeTruthy();
       expect(agent.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
       expect(agent.ragAgents.length).toBeGreaterThan(0);
+      expect(agent.contextLimit).toBeGreaterThan(0);
     }
+  });
+
+  it('Investor Coach maps to 5 RAG agents', () => {
+    const coach = getAgentById('investor-coach');
+    expect(coach).toBeDefined();
+    expect(coach!.ragAgents).toHaveLength(5);
+  });
+
+  it('Deal Specialist maps to 3 RAG agents', () => {
+    const specialist = getAgentById('deal-specialist');
+    expect(specialist).toBeDefined();
+    expect(specialist!.ragAgents).toHaveLength(3);
   });
 });

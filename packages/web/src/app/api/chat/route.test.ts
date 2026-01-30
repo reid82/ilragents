@@ -5,6 +5,13 @@ vi.mock('dotenv', () => ({
   config: vi.fn(),
 }));
 
+// Mock agents
+vi.mock('@/lib/agents', () => ({
+  AGENTS: [
+    { id: 'baseline-ben', name: 'Baseline Ben', contextLimit: 15 },
+  ],
+}));
+
 // Mock pipeline chat
 vi.mock('@ilre/pipeline/chat', () => ({
   chat: vi.fn().mockResolvedValue({

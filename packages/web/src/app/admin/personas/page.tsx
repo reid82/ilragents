@@ -11,6 +11,7 @@ interface Persona {
   system_prompt_override: string | null;
   personality_traits: string | null;
   greeting_message: string | null;
+  elevenlabs_agent_id: string | null;
 }
 
 export default function PersonasAdminPage() {
@@ -24,6 +25,7 @@ export default function PersonasAdminPage() {
   const [systemPromptOverride, setSystemPromptOverride] = useState('');
   const [personalityTraits, setPersonalityTraits] = useState('');
   const [greetingMessage, setGreetingMessage] = useState('');
+  const [elevenlabsAgentId, setElevenlabsAgentId] = useState('');
 
   useEffect(() => {
     fetchPersonas();
@@ -48,6 +50,7 @@ export default function PersonasAdminPage() {
     setSystemPromptOverride(persona.system_prompt_override || '');
     setPersonalityTraits(persona.personality_traits || '');
     setGreetingMessage(persona.greeting_message || '');
+    setElevenlabsAgentId(persona.elevenlabs_agent_id || '');
     setFeedback(null);
   }
 
@@ -64,6 +67,7 @@ export default function PersonasAdminPage() {
           system_prompt_override: systemPromptOverride,
           personality_traits: personalityTraits,
           greeting_message: greetingMessage,
+          elevenlabs_agent_id: elevenlabsAgentId,
         }),
       });
 
@@ -193,6 +197,19 @@ export default function PersonasAdminPage() {
                   rows={3}
                   placeholder="The initial greeting when a user opens this agent's chat."
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  ElevenLabs Agent ID
+                </label>
+                <input
+                  type="text"
+                  value={elevenlabsAgentId}
+                  onChange={(e) => setElevenlabsAgentId(e.target.value)}
+                  placeholder="Paste the ElevenLabs agent ID for voice chat"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                 />
               </div>
 

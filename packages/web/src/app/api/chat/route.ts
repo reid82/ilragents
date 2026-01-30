@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { config } from "dotenv";
 import path from "path";
+import { AGENTS } from "@/lib/agents";
 
 // Load env from repo root
 config({ path: path.resolve(process.cwd(), "../../.env") });
@@ -37,8 +38,13 @@ export async function POST(req: NextRequest) {
     // Dynamic import to ensure env is loaded first
     const { chat } = await import("@ilre/pipeline/chat");
 
+    // Look up agent-specific context limit
+    const agentDef = AGENTS.find((a) => a.name === agent);
+    const contextLimit = agentDef?.contextLimit;
+
     const { reply, sources } = await chat(query, history, {
       agent,
+      contextLimit,
       responseFormat,
       financialContext,
       systemPromptOverride,

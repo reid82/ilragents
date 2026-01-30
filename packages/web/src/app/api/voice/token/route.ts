@@ -1,16 +1,43 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { config } from 'dotenv';
 import path from 'path';
 
 config({ path: path.resolve(process.cwd(), '../../.env') });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  const agentId = process.env.ELEVENLABS_AGENT_ID;
+  const agentSlug = req.nextUrl.searchParams.get('agent');
 
-  if (!apiKey || !agentId) {
+  if (!apiKey) {
     return NextResponse.json(
       { error: 'Voice chat is not configured', available: false },
+      { status: 503 }
+    );
+  }
+
+  // Look up per-agent ElevenLabs ID from Supabase, fall back to env var
+  let agentId: string | null = process.env.ELEVENLABS_AGENT_ID || null;
+
+  if (agentSlug) {
+    try {
+      const { getSupabaseClient } = await import('@/lib/supabase');
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
+        .from('agent_personas')
+        .select('elevenlabs_agent_id')
+        .eq('id', agentSlug)
+        .single();
+      if (data?.elevenlabs_agent_id) {
+        agentId = data.elevenlabs_agent_id;
+      }
+    } catch {
+      // Non-fatal: fall back to default env var
+    }
+  }
+
+  if (!agentId) {
+    return NextResponse.json(
+      { error: 'No ElevenLabs agent configured for this specialist', available: false },
       { status: 503 }
     );
   }

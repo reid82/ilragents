@@ -3,14 +3,20 @@
 import { useState, useEffect, useCallback } from 'react';
 
 interface VoiceChatProps {
+  agentSlug: string;
   agentName: string;
+  agentDomain: string;
   agentColor: string;
+  financialContext?: string;
   onClose: () => void;
 }
 
 export default function VoiceChat({
+  agentSlug,
   agentName,
+  agentDomain,
   agentColor,
+  financialContext,
   onClose,
 }: VoiceChatProps) {
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
@@ -29,7 +35,7 @@ export default function VoiceChat({
   useEffect(() => {
     async function checkAvailability() {
       try {
-        const res = await fetch('/api/voice/token');
+        const res = await fetch(`/api/voice/token?agent=${encodeURIComponent(agentSlug)}`);
         const data = await res.json();
         setIsAvailable(data.available);
         if (!data.available) {
@@ -62,8 +68,20 @@ export default function VoiceChat({
 
       const { Conversation } = await import('@11labs/client');
 
+      // Build override prompt so the custom LLM endpoint receives agent name
+      // and financial context in the system message from ElevenLabs
+      let overridePrompt = `You are ${agentName}, specialist in ${agentDomain}.`;
+      if (financialContext) {
+        overridePrompt += `\n\n---FINANCIAL_CONTEXT---\n${financialContext}\n---END_FINANCIAL_CONTEXT---`;
+      }
+
       const conversation = await Conversation.startSession({
         signedUrl: tokenData.signedUrl,
+        overrides: {
+          agent: {
+            prompt: { prompt: overridePrompt },
+          },
+        },
         onConnect: () => {
           setIsConnected(true);
           setStatus('Connected - speak now');

@@ -106,6 +106,26 @@ export function resolveResponseFormat(format?: string): ResponseFormat {
 }
 
 /**
+ * Build the CLIENT FILE block for injection into agent system prompts.
+ * Contains behavioural rules + agent brief + structured data.
+ */
+export function buildClientFileBlock(financialContext: string): string {
+  return `
+── CLIENT FILE (reference only) ──────────────────────────
+
+RULES FOR USING THIS DATA:
+- This is background knowledge. You know it. Do not announce it.
+- Never open by summarising the client's situation back to them.
+- Only reference specific data points when the client's question directly requires them.
+- If they ask a general knowledge question, answer it generally. Do not shoehorn their portfolio into every response.
+- If their data would materially change the answer, weave it in naturally: "Given you're on the 37% marginal rate..." not "I see from your profile that..."
+- Do NOT ask clarifying questions about information already present in this file.
+
+${financialContext}
+───────────────────────────────────────────────────────────`;
+}
+
+/**
  * Build the system prompt for an agent
  */
 export function buildSystemPrompt(agent: string, context: SearchResult[], format: ResponseFormat): string {
@@ -133,7 +153,7 @@ Before giving a detailed answer, consider whether knowing more about the client'
 - If they ask "how should I structure my next purchase?" - ask about their goals, timeline, and current setup before recommending a structure.
 - If they ask a general knowledge question like "how does depreciation work?" - just answer it, no clarification needed.
 The rule: if two different clients could need completely different answers to the same question, ask before answering. If the answer is broadly the same regardless, just answer.
-Do NOT ask more than 2 questions at a time. Do NOT ask questions the financial profile already answers. Always give something useful in your response even when asking for more info - never reply with only questions.
+Do NOT ask more than 2 questions at a time. Do NOT ask questions already answered in the CLIENT FILE. Always give something useful in your response even when asking for more info - never reply with only questions.
 
 ${format.instructions}
 
@@ -224,7 +244,7 @@ async function prepareChatContext(
 
     const parts = [systemPromptOverride];
     if (financialContext) {
-      parts.push(`CLIENT BACKGROUND (for context only - answer the client's actual question, do not steer the conversation toward their stated goals):\n${financialContext}`);
+      parts.push(buildClientFileBlock(financialContext));
     }
     parts.push(format.instructions);
     if (results.length > 0) {
@@ -234,11 +254,11 @@ async function prepareChatContext(
   } else {
     systemPrompt = buildSystemPrompt(agent, results, format);
 
-    // Inject financial context if provided (as background info, not a directive)
+    // Inject client file if provided (reference data with behavioural rules)
     if (financialContext) {
       systemPrompt = systemPrompt.replace(
         format.instructions,
-        `CLIENT BACKGROUND (for context only - answer the client's actual question, do not steer the conversation toward their stated goals):\n${financialContext}\n\n${format.instructions}`
+        `${buildClientFileBlock(financialContext)}\n\n${format.instructions}`
       );
     }
   }

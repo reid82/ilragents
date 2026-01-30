@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+
+# Data files (keep structure, ignore content)
+data/transcripts/*
+data/case-studies/*
+data/pdfs/*
+data/chunks/*
+!data/**/.gitkeep
+
+# OS files
+.DS_Store

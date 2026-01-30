@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { useSessionStore } from '@/lib/stores/session-store';
-import { useFinancialStore } from '@/lib/stores/financial-store';
+import { useClientProfileStore } from '@/lib/stores/financial-store';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -15,8 +15,8 @@ export default function OnboardingPage() {
   const router = useRouter();
   const setOnboarded = useSessionStore((s) => s.setOnboarded);
   const setSessionId = useSessionStore((s) => s.setSessionId);
-  const setPosition = useFinancialStore((s) => s.setPosition);
-  const setRawTranscript = useFinancialStore((s) => s.setRawTranscript);
+  const setProfile = useClientProfileStore((s) => s.setProfile);
+  const setRawTranscript = useClientProfileStore((s) => s.setRawTranscript);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -47,7 +47,7 @@ export default function OnboardingPage() {
 
         if (res.ok) {
           const financialData = await res.json();
-          setPosition(financialData);
+          setProfile(financialData);
           setRawTranscript(transcript);
           setSessionId(sessionId);
         }
@@ -63,7 +63,7 @@ export default function OnboardingPage() {
         setIsExtracting(false);
       }
     },
-    [router, setOnboarded, setPosition, setRawTranscript, setSessionId]
+    [router, setOnboarded, setProfile, setRawTranscript, setSessionId]
   );
 
   const sendMessage = useCallback(

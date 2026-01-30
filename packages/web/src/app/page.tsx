@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getAdvisors, getFacilitator } from "@/lib/agents";
 import type { AgentDef } from "@/lib/agents";
 import { useSessionStore } from "@/lib/stores/session-store";
-import { useFinancialStore } from "@/lib/stores/financial-store";
+import { useClientProfileStore } from "@/lib/stores/financial-store";
 import { TEST_PROFILES } from "@/lib/test-profiles";
 
 function AgentCard({ agent, locked }: { agent: AgentDef; locked?: boolean }) {
@@ -106,9 +106,9 @@ export default function HomePage() {
   const isOnboarded = useSessionStore((s) => s.isOnboarded);
   const setOnboarded = useSessionStore((s) => s.setOnboarded);
   const setSessionId = useSessionStore((s) => s.setSessionId);
-  const setPosition = useFinancialStore((s) => s.setPosition);
-  const financialClear = useFinancialStore((s) => s.clear);
-  const currentPosition = useFinancialStore((s) => s.position);
+  const setProfile = useClientProfileStore((s) => s.setProfile);
+  const financialClear = useClientProfileStore((s) => s.clear);
+  const currentProfile = useClientProfileStore((s) => s.profile);
   const [showDevPanel, setShowDevPanel] = useState(false);
 
   // Hydration guard: Zustand persist reads from localStorage async
@@ -121,7 +121,7 @@ export default function HomePage() {
   function activateProfile(profileId: string) {
     const profile = TEST_PROFILES.find((p) => p.id === profileId);
     if (!profile) return;
-    setPosition(profile.position);
+    setProfile(profile.profile);
     setSessionId(`test-${profile.id}`);
     setOnboarded(true);
     setShowDevPanel(false);
@@ -150,7 +150,7 @@ export default function HomePage() {
                 onClick={() => setShowDevPanel(!showDevPanel)}
                 className="text-xs text-amber-500/70 hover:text-amber-400 transition-colors"
               >
-                [Dev: Test Profiles{currentPosition ? ` - ${currentPosition.summary?.slice(0, 40)}...` : ''}]
+                [Dev: Test Profiles{currentProfile ? ` - ${currentProfile.summary?.slice(0, 40)}...` : ''}]
               </button>
               {showDevPanel && (
                 <div className="mt-3 bg-zinc-900 border border-zinc-700 rounded-lg p-4 max-w-2xl">
@@ -173,7 +173,7 @@ export default function HomePage() {
                         key={profile.id}
                         onClick={() => activateProfile(profile.id)}
                         className={`text-left p-3 rounded-lg border transition-colors ${
-                          currentPosition?.summary === profile.position.summary
+                          currentProfile?.summary === profile.profile.summary
                             ? 'border-blue-500 bg-blue-500/10'
                             : 'border-zinc-700 hover:border-zinc-500 bg-zinc-800/50'
                         }`}

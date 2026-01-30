@@ -5,7 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
 import { getAgentById } from "@/lib/agents";
-import { useFinancialStore } from "@/lib/stores/financial-store";
+import { useClientProfileStore } from "@/lib/stores/financial-store";
+import type { AgentBriefs, ClientProfile } from "@/lib/stores/financial-store";
 import { use } from "react";
 
 const VoiceChat = dynamic(() => import("@/components/VoiceChat"), {
@@ -27,6 +28,26 @@ interface Message {
 
 type ResponseFormat = "concise" | "standard" | "detailed";
 
+const AGENT_BRIEF_KEYS: Record<string, keyof AgentBriefs> = {
+  'baseline-ben': 'baselineBen',
+  'finder-fred': 'finderFred',
+  'investor-coach': 'investorCoach',
+  'deal-specialist': 'dealSpecialist',
+};
+
+function buildFinancialContext(
+  profile: ClientProfile,
+  agentId: string
+): string {
+  const briefKey = AGENT_BRIEF_KEYS[agentId];
+  const brief = briefKey ? profile.agentBriefs[briefKey] : profile.summary;
+
+  // Build structured data section (omit briefs and summary to avoid duplication)
+  const { agentBriefs: _briefs, summary: _summary, ...structuredData } = profile;
+
+  return `${brief}\n\nCLIENT DATA:\n${JSON.stringify(structuredData, null, 2)}`;
+}
+
 export default function ChatPage({
   params,
 }: {
@@ -35,7 +56,7 @@ export default function ChatPage({
   const { agent: agentSlug } = use(params);
   const agent = getAgentById(agentSlug);
 
-  const financialPosition = useFinancialStore((s) => s.position);
+  const clientProfile = useClientProfileStore((s) => s.profile);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -100,7 +121,9 @@ export default function ChatPage({
           agent: agent.name,
           history,
           responseFormat: format,
-          financialContext: financialPosition?.summary || undefined,
+          financialContext: clientProfile
+            ? buildFinancialContext(clientProfile, agentSlug)
+            : undefined,
         }),
       });
 
@@ -337,7 +360,11 @@ export default function ChatPage({
           agentName={agent.name}
           agentDomain={agent.domain}
           agentColor={agent.color}
-          financialContext={financialPosition?.summary || undefined}
+          financialContext={
+            clientProfile
+              ? buildFinancialContext(clientProfile, agent.id)
+              : undefined
+          }
           onClose={() => setShowVoice(false)}
         />
       )}

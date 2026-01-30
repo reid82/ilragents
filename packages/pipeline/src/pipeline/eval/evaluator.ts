@@ -51,7 +51,8 @@ function buildEvalPrompt(
   question: string,
   response: string,
   profileSummary: string,
-  rubric: RubricCriteria
+  rubric: RubricCriteria,
+  agentBrief?: string
 ): string {
   let rubricSection = `The response MUST address: ${rubric.mustAddress}`;
   if (rubric.mustNotDeflect) {
@@ -76,6 +77,7 @@ DIMENSIONS:
 
 USER PROFILE:
 ${profileSummary}
+${agentBrief ? `\nAGENT-SPECIFIC BRIEF PROVIDED TO THE AGENT:\n${agentBrief}` : ''}
 
 QUESTION ASKED:
 ${question}
@@ -111,11 +113,12 @@ export async function evaluateResponse(
   question: string,
   response: string,
   profileSummary: string,
-  rubric: RubricCriteria
+  rubric: RubricCriteria,
+  agentBrief?: string
 ): Promise<EvalResult> {
   const client = getEvalClient();
 
-  const evalPrompt = buildEvalPrompt(question, response, profileSummary, rubric);
+  const evalPrompt = buildEvalPrompt(question, response, profileSummary, rubric, agentBrief);
 
   const completion = await client.chat.completions.create({
     model: EVAL_MODEL,

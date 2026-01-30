@@ -554,16 +554,18 @@ program
   .command('chat')
   .description('Chat with an ILRE agent')
   .requiredOption('-a, --agent <name>', 'Agent name (e.g. "Navigator Nate")')
-  .option('-m, --model <model>', 'Chat model to use', process.env.CHAT_MODEL || 'openai/gpt-4o-mini')
+  .option('-m, --model <model>', 'Chat model to use')
   .option('-q, --query <query>', 'Single question (non-interactive mode)')
-  .option('-n, --context <number>', 'Number of context chunks to retrieve', parseInt, 8)
-  .option('--min-score <score>', 'Minimum similarity score', parseFloat, 0.25)
+  .option('-n, --context <number>', 'Number of context chunks to retrieve', parseInt)
+  .option('--min-score <score>', 'Minimum similarity score', parseFloat)
+  .option('-f, --format <format>', 'Response format: concise, standard, detailed, email, or custom instructions')
   .action(async (options) => {
     const chatOptions = {
       agent: options.agent,
       model: options.model,
       contextLimit: options.context,
       minScore: options.minScore,
+      responseFormat: options.format,
     };
 
     if (options.query) {

@@ -28,29 +28,96 @@ function getOpenRouterClient(): OpenAI {
 }
 
 /**
+ * Response format presets
+ * Controls output length, style, and formatting instructions injected into the system prompt.
+ */
+export type ResponseFormatPreset = 'concise' | 'standard' | 'detailed' | 'email';
+
+export interface ResponseFormat {
+  instructions: string;
+  maxTokens: number;
+}
+
+const RESPONSE_FORMAT_PRESETS: Record<ResponseFormatPreset, ResponseFormat> = {
+  concise: {
+    instructions: `RESPONSE FORMAT:
+- Keep your answer to 2-4 sentences maximum.
+- No markdown formatting, no bullet points, no headings.
+- Write in a direct, conversational tone.
+- Still cite sources inline using (Source N) but keep it brief.`,
+    maxTokens: 400,
+  },
+  standard: {
+    instructions: `RESPONSE FORMAT:
+- Answer in a few short paragraphs (3-5 paragraphs max).
+- Use plain language, conversational tone.
+- Light formatting is fine (bold key terms if helpful) but avoid heavy markdown.
+- Cite sources inline using (Source N).`,
+    maxTokens: 1500,
+  },
+  detailed: {
+    instructions: `RESPONSE FORMAT:
+- Provide a thorough, in-depth answer.
+- Use headings (##), bullet points, and numbered lists to structure the response.
+- Include specific examples, steps, or frameworks from the materials.
+- Cite sources inline using (Source N) for every key claim.
+- Aim for a comprehensive walkthrough of the topic.`,
+    maxTokens: 3000,
+  },
+  email: {
+    instructions: `RESPONSE FORMAT:
+- Write as a professional but warm email reply.
+- Start with a greeting (e.g. "Hi [name]," or "Great question!").
+- Keep to 2-4 short paragraphs in the body.
+- End with a friendly sign-off and the agent's name.
+- No markdown formatting - plain text only, suitable for email.
+- Do NOT include (Source N) citations in the email body. The sources are tracked separately.`,
+    maxTokens: 1200,
+  },
+};
+
+/**
+ * Resolve a response format from a preset name or custom instruction string
+ */
+function resolveResponseFormat(format?: string): ResponseFormat {
+  if (!format) return RESPONSE_FORMAT_PRESETS.standard;
+  if (format in RESPONSE_FORMAT_PRESETS) {
+    return RESPONSE_FORMAT_PRESETS[format as ResponseFormatPreset];
+  }
+  // Custom instruction string
+  return {
+    instructions: `RESPONSE FORMAT:\n${format}`,
+    maxTokens: 2000,
+  };
+}
+
+/**
  * Build the system prompt for an agent
  */
-function buildSystemPrompt(agent: string, context: SearchResult[]): string {
+function buildSystemPrompt(agent: string, context: SearchResult[], format: ResponseFormat): string {
   const contextBlocks = context.map((r, i) => {
     const src = r.chunk.metadata;
     return `[Source ${i + 1}: "${src.title}" (${src.contentType})]
 ${r.chunk.text}`;
   }).join('\n\n---\n\n');
 
+  const hasContext = context.length > 0;
+
   return `You are ${agent}, a real estate investing education instructor at I Love Real Estate (ILRE).
 
-Your role:
-- Answer questions about real estate investing using your training materials
-- Be conversational, helpful, and encouraging
-- Reference specific concepts from your materials when relevant
-- If a question is outside your knowledge base, say so honestly
-- Keep answers focused and practical
+CRITICAL RULES - you must follow these without exception:
+1. ONLY use information from the source materials provided below. Do NOT draw on general knowledge, outside information, or anything not explicitly stated in the materials.
+2. When answering, directly reference and quote the source materials. Use phrases like "In [Source Title], we cover..." or "As explained in [Source Title]..." to ground every claim.
+3. For each key point you make, cite which source it comes from using the format (Source N) at the end of the relevant sentence or paragraph.
+4. If the provided materials do not contain information to answer the question, say: "That's not something I cover in my materials. Let me know if you have questions about [list 2-3 topics your sources DO cover]."
+5. NEVER fabricate, infer beyond what's stated, or fill gaps with general real estate knowledge. If the materials only partially address a topic, share what they cover and be clear about where your materials stop.
+6. Keep answers practical and grounded in the specific frameworks, steps, and examples from the materials.
 
-Here is context from your training materials to help answer the current question:
+${format.instructions}
 
-${contextBlocks}
+${hasContext ? `Here are your source materials for this question:
 
-Use this context to inform your answers. If the context doesn't cover the topic, say what you can and note that it's beyond your current materials.`;
+${contextBlocks}` : 'No relevant source materials were found for this question. Tell the user this topic is not covered in your current materials and suggest they ask about topics you do cover.'}`;
 }
 
 interface ChatMessage {
@@ -63,6 +130,7 @@ interface ChatOptions {
   model?: string;
   contextLimit?: number;
   minScore?: number;
+  responseFormat?: string;
 }
 
 /**
@@ -75,10 +143,13 @@ export async function chat(
 ): Promise<{ reply: string; sources: SearchResult[] }> {
   const {
     agent,
-    model = process.env.CHAT_MODEL || process.env.SUMMARIZATION_MODEL || 'openai/gpt-4o-mini',
-    contextLimit = 8,
-    minScore = 0.25,
+    model = process.env.CHAT_MODEL || 'anthropic/claude-opus-4.5',
+    contextLimit = 15,
+    minScore = 0.45,
+    responseFormat: formatInput,
   } = options;
+
+  const format = resolveResponseFormat(formatInput);
 
   // Search for relevant chunks from this agent
   const results = await searchChunks({
@@ -90,7 +161,7 @@ export async function chat(
   });
 
   // Build system prompt with context
-  const systemPrompt = buildSystemPrompt(agent, results);
+  const systemPrompt = buildSystemPrompt(agent, results, format);
 
   // Build message array
   const messages: ChatMessage[] = [
@@ -104,8 +175,8 @@ export async function chat(
   const response = await client.chat.completions.create({
     model,
     messages,
-    temperature: 0.7,
-    max_tokens: 1000,
+    temperature: 0.2,
+    max_tokens: format.maxTokens,
   });
 
   const reply = response.choices[0]?.message?.content || 'No response generated.';

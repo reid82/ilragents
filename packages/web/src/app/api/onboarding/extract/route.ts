@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     );
 
     let profileData;
+    let noChanges = false;
 
     if (existingProfile) {
       // Merge mode: update existing profile with new conversation data
@@ -29,17 +30,14 @@ export async function POST(req: NextRequest) {
         transcript
       );
       profileData = profile;
-
-      if (!hasChanges) {
-        return NextResponse.json({ ...profileData, _noChanges: true });
-      }
+      noChanges = !hasChanges;
     } else {
       // Fresh extraction from onboarding
       profileData = await extractClientProfile(transcript);
     }
 
     // Persist to Supabase if sessionId provided (non-fatal if fails)
-    if (sessionId) {
+    if (sessionId && !noChanges) {
       try {
         const { getSupabaseClient } = await import('@/lib/supabase');
         const supabase = getSupabaseClient();
@@ -58,7 +56,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(profileData);
+    return NextResponse.json(noChanges ? { _noChanges: true } : profileData);
   } catch (error) {
     console.error('Extraction error:', error);
     return NextResponse.json(

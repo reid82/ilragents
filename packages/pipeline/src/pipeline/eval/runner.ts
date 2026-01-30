@@ -9,11 +9,19 @@ import { fileURLToPath } from 'url';
 import { chat } from '../chat';
 import type { ChatMessage } from '../chat';
 import { getProfile } from './profiles';
+import type { AgentBriefs } from './profiles';
 import { evaluateResponse } from './evaluator';
 import type { RubricCriteria } from './evaluator';
 import type { ScenarioResult } from './report';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const AGENT_TO_BRIEF_KEY: Record<string, keyof AgentBriefs> = {
+  'Baseline Ben': 'baselineBen',
+  'Finder Fred': 'finderFred',
+  'Investor Coach': 'investorCoach',
+  'Deal Specialist': 'dealSpecialist',
+};
 
 interface SingleTurnScenario {
   id: string;
@@ -73,6 +81,12 @@ export async function runEval(options: RunOptions = {}): Promise<ScenarioResult[
       continue;
     }
 
+    const briefKey = AGENT_TO_BRIEF_KEY[scenario.agent];
+    const agentBrief = briefKey ? profile.agentBriefs[briefKey] : undefined;
+    const financialContext = agentBrief
+      ? `${agentBrief}\n\nCLIENT DATA:\n${JSON.stringify({ summary: profile.summary }, null, 2)}`
+      : profile.summary;
+
     if (scenario.turns) {
       // Multi-turn scenario
       const history: ChatMessage[] = [];
@@ -85,7 +99,7 @@ export async function runEval(options: RunOptions = {}): Promise<ScenarioResult[
         try {
           const { reply, sources } = await chat(turn.question, history, {
             agent: scenario.agent,
-            financialContext: profile.summary,
+            financialContext,
           });
 
           // Evaluate this turn's response
@@ -93,7 +107,8 @@ export async function runEval(options: RunOptions = {}): Promise<ScenarioResult[
             turn.question,
             reply,
             profile.summary,
-            turn.rubric
+            turn.rubric,
+            agentBrief
           );
 
           results.push({
@@ -145,14 +160,15 @@ export async function runEval(options: RunOptions = {}): Promise<ScenarioResult[
       try {
         const { reply } = await chat(scenario.question, [], {
           agent: scenario.agent,
-          financialContext: profile.summary,
+          financialContext,
         });
 
         const evalResult = await evaluateResponse(
           scenario.question,
           reply,
           profile.summary,
-          scenario.rubric
+          scenario.rubric,
+          agentBrief
         );
 
         results.push({

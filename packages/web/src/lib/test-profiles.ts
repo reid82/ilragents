@@ -177,7 +177,7 @@ export const TEST_PROFILES: TestProfile[] = [
         dealSpecialist: 'James holds properties in personal name (Brunswick unit) and joint-personal name with partner (Geelong house). PPOR in joint names. No trusts or companies set up but actively interested in structuring future acquisitions through trusts. Marginal tax rate 37% ($130k + $54k rental). Has an accountant. No solicitor. No financial planner. No SMSF. 2 dependents. Partner co-invests. Looking at 3+ more purchases over 3 years so structure decisions are urgent.',
       },
       completenessScore: 92,
-      dataGaps: ['hasFinancialPlanner', 'hasInsurance'],
+      dataGaps: ['hasFinancialPlanner', 'hasSolicitor'],
       collectedAt: '2026-01-31T00:00:00.000Z',
     },
   },

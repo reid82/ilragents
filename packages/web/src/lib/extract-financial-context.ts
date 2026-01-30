@@ -145,7 +145,7 @@ export async function extractClientProfile(
       { role: 'user', content: transcript },
     ],
     temperature: 0.1,
-    max_tokens: 3000,
+    max_tokens: 4000,
   });
 
   const content = response.choices[0]?.message?.content;
@@ -179,7 +179,7 @@ export async function mergeClientProfile(
       },
     ],
     temperature: 0.1,
-    max_tokens: 3000,
+    max_tokens: 4000,
   });
 
   const content = response.choices[0]?.message?.content;

@@ -3,17 +3,19 @@ node_modules/
 
 # Build output
 dist/
+.next/
 
 # Environment
 .env
 .env.local
+.env*.local
 
 # Data files (keep structure, ignore content)
-data/transcripts/*
-data/case-studies/*
-data/pdfs/*
-data/chunks/*
-!data/**/.gitkeep
+packages/pipeline/data/transcripts/*
+packages/pipeline/data/case-studies/*
+packages/pipeline/data/pdfs/*
+packages/pipeline/data/chunks/*
+!packages/pipeline/data/**/.gitkeep
 
 # OS files
 .DS_Store

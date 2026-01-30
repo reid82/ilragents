@@ -1,25 +1,12 @@
 {
   "name": "ilragents",
-  "version": "1.0.0",
-  "description": "ILRE Agents Platform - Content Pipeline & AI Coaching Agents",
-  "type": "module",
+  "private": true,
+  "workspaces": ["packages/*"],
   "scripts": {
-    "pipeline": "tsx src/pipeline/cli.ts",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
-    "cheerio": "^1.0.0",
-    "commander": "^12.1.0",
-    "dotenv": "^16.4.5",
-    "gray-matter": "^4.0.3",
-    "openai": "^4.28.0",
-    "pdf-parse": "^1.1.1"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.0",
-    "@types/pdf-parse": "^1.1.4",
-    "tsx": "^4.19.0",
-    "typescript": "^5.6.0"
+    "dev": "npm -w @ilre/web run dev",
+    "build": "npm -w @ilre/web run build",
+    "pipeline": "npm -w @ilre/pipeline run pipeline --",
+    "test": "npm -w @ilre/pipeline run test && npm -w @ilre/web run test",
+    "test:e2e": "npm -w @ilre/web run test:e2e"
   }
 }

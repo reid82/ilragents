@@ -83,44 +83,48 @@ export default function WarRoomPage() {
           />
         </div>
 
-        {/* Dev tools - bottom of left panel */}
-        <div className="border-t border-zinc-800 px-3 py-2">
+        {/* Profile switcher - bottom of left panel */}
+        <div className="border-t border-zinc-800 px-3 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-amber-400 tracking-wide">
+              TEST AS
+            </span>
+            {isOnboarded && (
+              <button
+                onClick={resetProfile}
+                className="text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded border border-red-500/30 hover:bg-red-500/10 transition-colors"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          {currentProfile && (
+            <div className="mb-2 px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
+              {currentProfile.personal.firstName} - {currentProfile.personal.state}, ${(currentProfile.employment.grossAnnualIncome / 1000).toFixed(0)}k
+            </div>
+          )}
           <button
             onClick={() => setShowDevPanel(!showDevPanel)}
-            className="text-[10px] text-amber-500/60 hover:text-amber-400 transition-colors font-mono"
+            className="w-full text-left text-xs text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded px-3 py-2 transition-colors border border-zinc-700"
           >
-            [DEV{currentProfile ? `: ${currentProfile.personal.firstName}` : ""}]
+            {showDevPanel ? "Hide profiles" : "Switch profile..."}
           </button>
           {showDevPanel && (
-            <div className="mt-2 bg-zinc-900 border border-zinc-700 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-medium text-zinc-400 font-mono">
-                  TEST PROFILES
-                </span>
-                {isOnboarded && (
-                  <button
-                    onClick={resetProfile}
-                    className="text-[10px] text-red-400 hover:text-red-300 font-mono"
-                  >
-                    RESET
-                  </button>
-                )}
-              </div>
-              <div className="space-y-1">
-                {TEST_PROFILES.map((profile) => (
-                  <button
-                    key={profile.id}
-                    onClick={() => activateProfile(profile.id)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-[11px] transition-colors ${
-                      currentProfile?.summary === profile.profile.summary
-                        ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                        : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-                    }`}
-                  >
-                    {profile.label}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-2 space-y-1">
+              {TEST_PROFILES.map((profile) => (
+                <button
+                  key={profile.id}
+                  onClick={() => activateProfile(profile.id)}
+                  className={`w-full text-left px-3 py-2 rounded text-xs transition-colors ${
+                    currentProfile?.summary === profile.profile.summary
+                      ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                      : "text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-800"
+                  }`}
+                >
+                  <div className="font-medium">{profile.label}</div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">{profile.description}</div>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -134,46 +138,46 @@ export default function WarRoomPage() {
           lockedAgentIds={lockedAgentIds}
           onSelectAgent={handleSelectAgent}
         />
-        <div className="border-b border-zinc-800 px-4 py-1.5">
+        <div className="border-b border-zinc-800 px-4 py-2 flex items-center gap-2">
           <button
             onClick={() => setShowDevPanel(!showDevPanel)}
-            className="text-[10px] text-amber-500/60 hover:text-amber-400 transition-colors font-mono"
+            className="text-xs text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded px-3 py-1.5 transition-colors border border-zinc-700"
           >
-            [DEV{currentProfile ? `: ${currentProfile.personal.firstName}` : ""}]
+            {currentProfile ? currentProfile.personal.firstName : "Pick profile"}
           </button>
-          {showDevPanel && (
-            <div className="mt-2 mb-1 bg-zinc-900 border border-zinc-700 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-medium text-zinc-400 font-mono">
-                  TEST PROFILES
-                </span>
-                {isOnboarded && (
-                  <button
-                    onClick={resetProfile}
-                    className="text-[10px] text-red-400 hover:text-red-300 font-mono"
-                  >
-                    RESET
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-1">
-                {TEST_PROFILES.map((profile) => (
-                  <button
-                    key={profile.id}
-                    onClick={() => activateProfile(profile.id)}
-                    className={`text-left px-2 py-1.5 rounded text-[11px] transition-colors ${
-                      currentProfile?.summary === profile.profile.summary
-                        ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                        : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-                    }`}
-                  >
-                    {profile.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {currentProfile && (
+            <span className="text-[10px] text-amber-400/80">
+              {currentProfile.personal.state}, ${(currentProfile.employment.grossAnnualIncome / 1000).toFixed(0)}k
+            </span>
+          )}
+          {isOnboarded && (
+            <button
+              onClick={resetProfile}
+              className="ml-auto text-[10px] text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-500/30 hover:bg-red-500/10 transition-colors"
+            >
+              Reset
+            </button>
           )}
         </div>
+        {showDevPanel && (
+          <div className="border-b border-zinc-800 px-4 py-2 bg-zinc-900/50">
+            <div className="grid grid-cols-2 gap-1.5">
+              {TEST_PROFILES.map((profile) => (
+                <button
+                  key={profile.id}
+                  onClick={() => activateProfile(profile.id)}
+                  className={`text-left px-2.5 py-2 rounded text-xs transition-colors ${
+                    currentProfile?.summary === profile.profile.summary
+                      ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                      : "text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-800"
+                  }`}
+                >
+                  {profile.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right panel - Chat */}

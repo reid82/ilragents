@@ -7,26 +7,16 @@ import ReactMarkdown from "react-markdown";
 import { getAgentById } from "@/lib/agents";
 import { useClientProfileStore } from "@/lib/stores/financial-store";
 import type { AgentBriefs, ClientProfile } from "@/lib/stores/financial-store";
+import { useChatStore } from "@/lib/stores/chat-store";
+import type { Message, Source } from "@/lib/stores/chat-store";
 import { use } from "react";
 
 const VoiceChat = dynamic(() => import("@/components/VoiceChat"), {
   ssr: false,
 });
 
-interface Source {
-  title: string;
-  score: number;
-  contentType: string;
-  agent: string;
-}
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  sources?: Source[];
-}
-
 type ResponseFormat = "concise" | "standard" | "detailed";
+const EMPTY_MESSAGES: Message[] = [];
 
 const AGENT_BRIEF_KEYS: Record<string, keyof AgentBriefs> = {
   'baseline-ben': 'baselineBen',
@@ -57,7 +47,11 @@ export default function ChatPage({
   const agent = getAgentById(agentSlug);
 
   const clientProfile = useClientProfileStore((s) => s.profile);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const messages = useChatStore((s) => s.chats[agentSlug]) ?? EMPTY_MESSAGES;
+  const addMessage = useChatStore((s) => s.addMessage);
+  const updateLastMessage = useChatStore((s) => s.updateLastMessage);
+  const clearChat = useChatStore((s) => s.clearChat);
+  const [streamingText, setStreamingText] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [format, setFormat] = useState<ResponseFormat>("standard");
@@ -69,7 +63,7 @@ export default function ChatPage({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, streamingText]);
 
   if (!agent) {
     return (
@@ -98,14 +92,12 @@ export default function ChatPage({
     const userMessage = input.trim();
     setInput("");
 
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    addMessage(agentSlug, { role: "user", content: userMessage });
     setIsLoading(true);
+    setStreamingText("");
 
     // Add placeholder for assistant message
-    setMessages((prev) => [
-      ...prev,
-      { role: "assistant", content: "", sources: [] },
-    ]);
+    addMessage(agentSlug, { role: "assistant", content: "", sources: [] });
 
     try {
       const history = messages.map((m) => ({
@@ -160,15 +152,7 @@ export default function ChatPage({
               sources = event.sources;
             } else if (event.type === "text") {
               assistantText += event.text;
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = {
-                  role: "assistant",
-                  content: assistantText,
-                  sources,
-                };
-                return updated;
-              });
+              setStreamingText(assistantText);
             }
           } catch {
             // Skip malformed JSON
@@ -176,15 +160,11 @@ export default function ChatPage({
         }
       }
 
-      // Final update with sources
-      setMessages((prev) => {
-        const updated = [...prev];
-        updated[updated.length - 1] = {
-          role: "assistant",
-          content: assistantText,
-          sources,
-        };
-        return updated;
+      // Commit final message to store
+      updateLastMessage(agentSlug, {
+        role: "assistant",
+        content: assistantText,
+        sources,
       });
     } catch (error) {
       const isNetworkError =
@@ -195,15 +175,12 @@ export default function ChatPage({
           ? error.message
           : "Something went wrong";
 
-      setMessages((prev) => {
-        const updated = [...prev];
-        updated[updated.length - 1] = {
-          role: "assistant",
-          content: `Error: ${errorMessage}`,
-        };
-        return updated;
+      updateLastMessage(agentSlug, {
+        role: "assistant",
+        content: `Error: ${errorMessage}`,
       });
     } finally {
+      setStreamingText(null);
       setIsLoading(false);
     }
   }
@@ -250,6 +227,12 @@ export default function ChatPage({
           >
             Voice
           </button>
+          <button
+            onClick={() => clearChat(agentSlug)}
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-400 hover:text-red-400 hover:bg-zinc-700 transition-colors"
+          >
+            Clear
+          </button>
         </div>
       </header>
 
@@ -273,56 +256,66 @@ export default function ChatPage({
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
-                msg.role === "user"
-                  ? "bg-blue-600 text-white"
-                  : "bg-zinc-800/80 text-zinc-100"
-              }`}
-            >
-              {msg.role === "assistant" ? (
-                <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
-                  {msg.content ? (
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  ) : (
-                    <span className="text-zinc-400 animate-pulse">
-                      Thinking...
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {msg.content}
-                </div>
-              )}
+        {messages.map((msg, i) => {
+          const isLastAssistant =
+            isLoading &&
+            msg.role === "assistant" &&
+            i === messages.length - 1;
+          const displayContent = isLastAssistant
+            ? (streamingText ?? msg.content)
+            : msg.content;
 
-              {/* Sources */}
-              {msg.sources && msg.sources.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-zinc-700">
-                  <p className="text-xs text-zinc-400 mb-2">
-                    Sources ({msg.sources.length}):
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {msg.sources.map((s, j) => (
-                      <span
-                        key={j}
-                        className="inline-block bg-zinc-700/80 text-zinc-300 text-xs px-2.5 py-1 rounded-full"
-                        title={`${s.agent} - ${(s.score * 100).toFixed(0)}% match`}
-                      >
-                        {s.title}
+          return (
+            <div
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-800/80 text-zinc-100"
+                }`}
+              >
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+                    {displayContent ? (
+                      <ReactMarkdown>{displayContent}</ReactMarkdown>
+                    ) : (
+                      <span className="text-zinc-400 animate-pulse">
+                        Thinking...
                       </span>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {msg.content}
+                  </div>
+                )}
+
+                {/* Sources */}
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-zinc-700">
+                    <p className="text-xs text-zinc-400 mb-2">
+                      Sources ({msg.sources.length}):
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {msg.sources.map((s, j) => (
+                        <span
+                          key={j}
+                          className="inline-block bg-zinc-700/80 text-zinc-300 text-xs px-2.5 py-1 rounded-full"
+                          title={`${s.agent} - ${(s.score * 100).toFixed(0)}% match`}
+                        >
+                          {s.title}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 

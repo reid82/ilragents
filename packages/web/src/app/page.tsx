@@ -6,6 +6,7 @@ import { getAdvisors, getFacilitator } from "@/lib/agents";
 import type { AgentDef } from "@/lib/agents";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useClientProfileStore } from "@/lib/stores/financial-store";
+import { useChatStore } from "@/lib/stores/chat-store";
 import { TEST_PROFILES } from "@/lib/test-profiles";
 
 function AgentCard({ agent, locked }: { agent: AgentDef; locked?: boolean }) {
@@ -109,6 +110,7 @@ export default function HomePage() {
   const setProfile = useClientProfileStore((s) => s.setProfile);
   const financialClear = useClientProfileStore((s) => s.clear);
   const currentProfile = useClientProfileStore((s) => s.profile);
+  const clearAllChats = useChatStore((s) => s.clearAllChats);
   const [showDevPanel, setShowDevPanel] = useState(false);
 
   // Hydration guard: Zustand persist reads from localStorage async
@@ -129,6 +131,7 @@ export default function HomePage() {
 
   function resetProfile() {
     financialClear();
+    clearAllChats();
     setOnboarded(false);
     setShowDevPanel(false);
   }

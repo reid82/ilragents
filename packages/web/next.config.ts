@@ -4,7 +4,9 @@ const nextConfig: NextConfig = {
   // Transpile the pipeline workspace package
   transpilePackages: ["@ilre/pipeline"],
 
-  // Load .env from repo root
+  // Standalone output for containerised deployments (Railway, Docker)
+  output: "standalone",
+
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",

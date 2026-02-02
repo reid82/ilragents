@@ -1,0 +1,13 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run build && cp -r packages/web/.next/static packages/web/.next/standalone/packages/web/.next/static"
+
+[deploy]
+startCommand = "node packages/web/.next/standalone/packages/web/server.js"
+healthcheckPath = "/"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[deploy.envs]
+PORT = "3000"
+HOSTNAME = "0.0.0.0"

@@ -1,0 +1,56 @@
+/* Radar sweep - conic gradient wedge rotating continuously */
+.radar-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    var(--sweep-color, rgba(59, 130, 246, 0.3)) 30deg,
+    transparent 60deg
+  );
+  animation: sweep 6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Pulse ring on active agent seat */
+.seat-pulse {
+  box-shadow: 0 0 0 0 var(--seat-color, rgba(59, 130, 246, 0.7));
+  animation: seatPulse 2s ease-out infinite;
+}
+
+@keyframes seatPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 var(--seat-color, rgba(59, 130, 246, 0.7));
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+/* Scanline overlay - subtle horizontal bars */
+.scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 3px,
+    rgba(0, 0, 0, 0.08) 3px,
+    rgba(0, 0, 0, 0.08) 6px
+  );
+  pointer-events: none;
+  z-index: 20;
+}

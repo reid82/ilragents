@@ -1,0 +1,339 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+import ReactMarkdown from "react-markdown";
+import type { AgentDef } from "@/lib/agents";
+import { useClientProfileStore } from "@/lib/stores/financial-store";
+import type { AgentBriefs, ClientProfile } from "@/lib/stores/financial-store";
+import { useChatStore } from "@/lib/stores/chat-store";
+import type { Message, Source } from "@/lib/stores/chat-store";
+
+const VoiceChat = dynamic(() => import("@/components/VoiceChat"), {
+  ssr: false,
+});
+
+type ResponseFormat = "concise" | "standard" | "detailed";
+const EMPTY_MESSAGES: Message[] = [];
+
+const AGENT_BRIEF_KEYS: Record<string, keyof AgentBriefs> = {
+  "baseline-ben": "baselineBen",
+  "finder-fred": "finderFred",
+  "investor-coach": "investorCoach",
+  "deal-specialist": "dealSpecialist",
+};
+
+function buildFinancialContext(
+  profile: ClientProfile,
+  agentId: string
+): string {
+  const briefKey = AGENT_BRIEF_KEYS[agentId];
+  const brief = briefKey ? profile.agentBriefs[briefKey] : profile.summary;
+  const { agentBriefs: _briefs, summary: _summary, ...structuredData } = profile;
+  return `${brief}\n\nCLIENT DATA:\n${JSON.stringify(structuredData, null, 2)}`;
+}
+
+interface ChatPanelProps {
+  agentSlug: string;
+  agent: AgentDef;
+  showBackLink?: boolean;
+}
+
+export default function ChatPanel({
+  agentSlug,
+  agent,
+  showBackLink = false,
+}: ChatPanelProps) {
+  const clientProfile = useClientProfileStore((s) => s.profile);
+  const messages = useChatStore((s) => s.chats[agentSlug]) ?? EMPTY_MESSAGES;
+  const addMessage = useChatStore((s) => s.addMessage);
+  const updateLastMessage = useChatStore((s) => s.updateLastMessage);
+  const clearChat = useChatStore((s) => s.clearChat);
+  const [streamingText, setStreamingText] = useState<string | null>(null);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [format, setFormat] = useState<ResponseFormat>("standard");
+  const [showVoice, setShowVoice] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, streamingText]);
+
+  async function handleSend() {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = input.trim();
+    setInput("");
+
+    addMessage(agentSlug, { role: "user", content: userMessage });
+    setIsLoading(true);
+    setStreamingText("");
+
+    addMessage(agentSlug, { role: "assistant", content: "", sources: [] });
+
+    try {
+      const history = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const res = await fetch("/api/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: userMessage,
+          agent: agent.name,
+          history,
+          responseFormat: format,
+          financialContext: clientProfile
+            ? buildFinancialContext(clientProfile, agentSlug)
+            : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let assistantText = "";
+      let sources: Source[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+          if (!data) continue;
+
+          try {
+            const event = JSON.parse(data);
+            if (event.type === "sources") {
+              sources = event.sources;
+            } else if (event.type === "text") {
+              assistantText += event.text;
+              setStreamingText(assistantText);
+            }
+          } catch {
+            // Skip malformed JSON
+          }
+        }
+      }
+
+      updateLastMessage(agentSlug, {
+        role: "assistant",
+        content: assistantText,
+        sources,
+      });
+    } catch (error) {
+      const isNetworkError =
+        error instanceof TypeError && error.message === "Failed to fetch";
+      const errorMessage = isNetworkError
+        ? "Network error - please check your connection and try again."
+        : error instanceof Error
+          ? error.message
+          : "Something went wrong";
+
+      updateLastMessage(agentSlug, {
+        role: "assistant",
+        content: `Error: ${errorMessage}`,
+      });
+    } finally {
+      setStreamingText(null);
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-zinc-950 text-white">
+      {/* Header */}
+      <header className="border-b border-zinc-800 px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 sm:gap-4">
+        {showBackLink && (
+          <Link
+            href="/"
+            className="text-zinc-400 hover:text-white transition-colors"
+          >
+            &larr; Back
+          </Link>
+        )}
+        <div className="flex items-center gap-3 flex-1">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+            style={{ backgroundColor: agent.color }}
+          >
+            {agent.name
+              .split(" ")
+              .map((w) => w[0])
+              .join("")}
+          </div>
+          <div>
+            <h1 className="font-semibold text-lg">{agent.name}</h1>
+            <p className="text-zinc-400 text-sm">{agent.domain}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-zinc-400 text-sm">Format:</label>
+          <select
+            value={format}
+            onChange={(e) => setFormat(e.target.value as ResponseFormat)}
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="concise">Concise</option>
+            <option value="standard">Standard</option>
+            <option value="detailed">Detailed</option>
+          </select>
+          <button
+            onClick={() => setShowVoice(true)}
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-white hover:bg-zinc-700 transition-colors"
+          >
+            Voice
+          </button>
+          <button
+            onClick={() => clearChat(agentSlug)}
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-400 hover:text-red-400 hover:bg-zinc-700 transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      </header>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+        {messages.length === 0 && (
+          <div className="text-center text-zinc-500 mt-20">
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl mx-auto mb-4"
+              style={{ backgroundColor: agent.color }}
+            >
+              {agent.name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")}
+            </div>
+            <p className="text-lg font-medium mb-2">
+              Ask {agent.name} anything
+            </p>
+            <p className="text-sm max-w-md mx-auto">{agent.description}</p>
+          </div>
+        )}
+
+        {messages.map((msg, i) => {
+          const isLastAssistant =
+            isLoading &&
+            msg.role === "assistant" &&
+            i === messages.length - 1;
+          const displayContent = isLastAssistant
+            ? (streamingText ?? msg.content)
+            : msg.content;
+
+          return (
+            <div
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-800/80 text-zinc-100"
+                }`}
+              >
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+                    {displayContent ? (
+                      <ReactMarkdown>{displayContent}</ReactMarkdown>
+                    ) : (
+                      <span className="text-zinc-400 animate-pulse">
+                        Thinking...
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {msg.content}
+                  </div>
+                )}
+
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-zinc-700">
+                    <p className="text-xs text-zinc-400 mb-2">
+                      Sources ({msg.sources.length}):
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {msg.sources.map((s, j) => (
+                        <span
+                          key={j}
+                          className="inline-block bg-zinc-700/80 text-zinc-300 text-xs px-2.5 py-1 rounded-full"
+                          title={`${s.agent} - ${(s.score * 100).toFixed(0)}% match`}
+                        >
+                          {s.title}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-zinc-800 px-6 py-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
+          }}
+          className="flex gap-3 max-w-4xl mx-auto"
+        >
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={`Ask ${agent.name}...`}
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
+          >
+            {isLoading ? "..." : "Send"}
+          </button>
+        </form>
+      </div>
+
+      {/* Voice Chat Modal */}
+      {showVoice && (
+        <VoiceChat
+          agentSlug={agent.id}
+          agentName={agent.name}
+          agentDomain={agent.domain}
+          agentColor={agent.color}
+          financialContext={
+            clientProfile
+              ? buildFinancialContext(clientProfile, agent.id)
+              : undefined
+          }
+          onClose={() => setShowVoice(false)}
+        />
+      )}
+    </div>
+  );
+}

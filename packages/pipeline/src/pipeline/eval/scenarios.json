@@ -79,7 +79,7 @@
   {
     "id": "deal-specialist-structures",
     "category": "baseline",
-    "agent": "Deal Specialist",
+    "agent": "Finance & Legal Team",
     "profile": "linda-asset-protection",
     "question": "Should I hold investment properties in a trust or company structure?",
     "rubric": {
@@ -90,7 +90,7 @@
   {
     "id": "deal-specialist-depreciation",
     "category": "baseline",
-    "agent": "Deal Specialist",
+    "agent": "Finance & Legal Team",
     "profile": "james-growing-portfolio",
     "question": "How does tax depreciation work for investment properties?",
     "rubric": {
@@ -101,7 +101,7 @@
   {
     "id": "deal-specialist-jv",
     "category": "baseline",
-    "agent": "Deal Specialist",
+    "agent": "Finance & Legal Team",
     "profile": "karen-high-equity",
     "question": "How do joint ventures work in property development?",
     "rubric": {
@@ -119,7 +119,7 @@
     "rubric": {
       "mustAddress": "tax depreciation in context of portfolio management",
       "mustNotDeflect": true,
-      "note": "Depreciation is Deal Specialist territory but Coach should still help"
+      "note": "Depreciation is Finance & Legal Team territory but Coach should still help"
     }
   },
   {
@@ -131,19 +131,19 @@
     "rubric": {
       "mustAddress": "asset protection concepts relevant to portfolio",
       "mustNotDeflect": true,
-      "note": "Asset protection is Deal Specialist territory but Coach should still help"
+      "note": "Asset protection is Finance & Legal Team territory but Coach should still help"
     }
   },
   {
     "id": "cross-deal-yield",
     "category": "cross-domain",
-    "agent": "Deal Specialist",
+    "agent": "Finance & Legal Team",
     "profile": "mike-cash-flow",
     "question": "How can I improve the cash flow on my investment property?",
     "rubric": {
       "mustAddress": "cash flow improvement ideas",
       "mustNotDeflect": true,
-      "note": "Yield is Coach territory but Deal Specialist should still help"
+      "note": "Yield is Coach territory but Finance & Legal Team should still help"
     }
   },
   {
@@ -155,7 +155,7 @@
     "rubric": {
       "mustAddress": "some guidance on trust purchasing",
       "mustNotDeflect": true,
-      "note": "Structures is Deal Specialist territory but Fred should still try to help"
+      "note": "Structures is Finance & Legal Team territory but Fred should still try to help"
     }
   },
   {
@@ -198,7 +198,7 @@
   {
     "id": "mismatch-mike-jv",
     "category": "profile-mismatch",
-    "agent": "Deal Specialist",
+    "agent": "Finance & Legal Team",
     "profile": "mike-cash-flow",
     "question": "Could a joint venture help me get into development?",
     "rubric": {
@@ -247,7 +247,7 @@
   {
     "id": "clarify-deal-structure",
     "category": "clarifying",
-    "agent": "Deal Specialist",
+    "agent": "Finance & Legal Team",
     "profile": "james-growing-portfolio",
     "question": "How should I structure my next purchase?",
     "rubric": {
@@ -271,7 +271,7 @@
   {
     "id": "no-clarify-depreciation",
     "category": "clarifying",
-    "agent": "Deal Specialist",
+    "agent": "Finance & Legal Team",
     "profile": "james-growing-portfolio",
     "question": "How does tax depreciation work?",
     "rubric": {
@@ -305,7 +305,7 @@
   {
     "id": "multiturn-deal-topic-switch",
     "category": "multi-turn",
-    "agent": "Deal Specialist",
+    "agent": "Finance & Legal Team",
     "profile": "linda-asset-protection",
     "turns": [
       {

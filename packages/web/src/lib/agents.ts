@@ -49,7 +49,7 @@ export const AGENTS: AgentDef[] = [
   },
   {
     id: "deal-specialist",
-    name: "Deal Specialist",
+    name: "Finance & Legal Team",
     domain: "Asset Protection, Tax & Deal Structuring",
     description:
       "Specialist in asset protection, legal structures, tax depreciation, joint ventures, and creative deal strategies.",

@@ -47,7 +47,7 @@ describe('agents', () => {
     expect(coach!.ragAgents).toHaveLength(5);
   });
 
-  it('Deal Specialist maps to 3 RAG agents', () => {
+  it('Finance & Legal Team maps to 3 RAG agents', () => {
     const specialist = getAgentById('deal-specialist');
     expect(specialist).toBeDefined();
     expect(specialist!.ragAgents).toHaveLength(3);

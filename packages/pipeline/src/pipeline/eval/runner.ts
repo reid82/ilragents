@@ -20,7 +20,7 @@ const AGENT_TO_BRIEF_KEY: Record<string, keyof AgentBriefs> = {
   'Baseline Ben': 'baselineBen',
   'Finder Fred': 'finderFred',
   'Investor Coach': 'investorCoach',
-  'Deal Specialist': 'dealSpecialist',
+  'Finance & Legal Team': 'dealSpecialist',
 };
 
 interface SingleTurnScenario {

@@ -62,10 +62,10 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('You are Baseline Ben');
   });
 
-  it('frames agent as specialist practitioner', () => {
+  it('frames agent as ILR trained specialist', () => {
     const format = resolveResponseFormat();
     const prompt = buildSystemPrompt('Baseline Ben', mockContext, format);
-    expect(prompt).toContain('specialist practitioner');
+    expect(prompt).toContain('ILR (I Love Real Estate) trained specialist');
     expect(prompt).not.toContain('education instructor');
   });
 
@@ -112,30 +112,35 @@ describe('buildSystemPrompt', () => {
 });
 
 describe('AGENT_ALIASES', () => {
-  it('maps Baseline Ben to three agents', () => {
-    expect(AGENT_ALIASES['Baseline Ben']).toHaveLength(3);
+  it('maps Baseline Ben to four agents', () => {
+    expect(AGENT_ALIASES['Baseline Ben']).toHaveLength(4);
     expect(AGENT_ALIASES['Baseline Ben']).toContain('Navigator Nate');
     expect(AGENT_ALIASES['Baseline Ben']).toContain('Foundation Frank');
     expect(AGENT_ALIASES['Baseline Ben']).toContain('Roadmap Ray');
+    expect(AGENT_ALIASES['Baseline Ben']).toContain('ILR Methodology');
   });
 
-  it('maps Investor Coach to five agents', () => {
-    expect(AGENT_ALIASES['Investor Coach']).toHaveLength(5);
+  it('maps Investor Coach to six agents', () => {
+    expect(AGENT_ALIASES['Investor Coach']).toHaveLength(6);
     expect(AGENT_ALIASES['Investor Coach']).toContain('Splitter Steve');
     expect(AGENT_ALIASES['Investor Coach']).toContain('Equity Eddie');
     expect(AGENT_ALIASES['Investor Coach']).toContain('Yield Yates');
     expect(AGENT_ALIASES['Investor Coach']).toContain('Tenant Tony');
     expect(AGENT_ALIASES['Investor Coach']).toContain('Strata Sam');
+    expect(AGENT_ALIASES['Investor Coach']).toContain('ILR Methodology');
   });
 
-  it('maps Deal Specialist to three agents', () => {
-    expect(AGENT_ALIASES['Deal Specialist']).toHaveLength(3);
-    expect(AGENT_ALIASES['Deal Specialist']).toContain('Teflon Terry');
-    expect(AGENT_ALIASES['Deal Specialist']).toContain('Depreciation Dave');
-    expect(AGENT_ALIASES['Deal Specialist']).toContain('Venture Vince');
+  it('maps Finance & Legal Team to four agents', () => {
+    expect(AGENT_ALIASES['Finance & Legal Team']).toHaveLength(4);
+    expect(AGENT_ALIASES['Finance & Legal Team']).toContain('Teflon Terry');
+    expect(AGENT_ALIASES['Finance & Legal Team']).toContain('Depreciation Dave');
+    expect(AGENT_ALIASES['Finance & Legal Team']).toContain('Venture Vince');
+    expect(AGENT_ALIASES['Finance & Legal Team']).toContain('ILR Methodology');
   });
 
-  it('does not have aliases for Finder Fred', () => {
-    expect(AGENT_ALIASES['Finder Fred']).toBeUndefined();
+  it('maps Finder Fred to two agents', () => {
+    expect(AGENT_ALIASES['Finder Fred']).toHaveLength(2);
+    expect(AGENT_ALIASES['Finder Fred']).toContain('Finder Fred');
+    expect(AGENT_ALIASES['Finder Fred']).toContain('ILR Methodology');
   });
 });

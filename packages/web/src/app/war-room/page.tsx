@@ -44,9 +44,11 @@ export default function WarRoomPage() {
   function activateProfile(profileId: string) {
     const profile = TEST_PROFILES.find((p) => p.id === profileId);
     if (!profile) return;
+    clearAllChats();
     setProfile(profile.profile);
     setSessionId(`test-${profile.id}`);
     setOnboarded(true);
+    setActiveAgentId(facilitator.id);
     setShowDevPanel(false);
   }
 
@@ -87,7 +89,7 @@ export default function WarRoomPage() {
             onClick={() => setShowDevPanel(!showDevPanel)}
             className="text-[10px] text-amber-500/60 hover:text-amber-400 transition-colors font-mono"
           >
-            [DEV]
+            [DEV{currentProfile ? `: ${currentProfile.personal.firstName}` : ""}]
           </button>
           {showDevPanel && (
             <div className="mt-2 bg-zinc-900 border border-zinc-700 rounded-lg p-3">
@@ -124,7 +126,7 @@ export default function WarRoomPage() {
         </div>
       </div>
 
-      {/* Mobile: Top agent strip */}
+      {/* Mobile: Top agent strip + dev tools */}
       <div className="md:hidden">
         <AgentStrip
           agents={AGENTS}
@@ -132,6 +134,46 @@ export default function WarRoomPage() {
           lockedAgentIds={lockedAgentIds}
           onSelectAgent={handleSelectAgent}
         />
+        <div className="border-b border-zinc-800 px-4 py-1.5">
+          <button
+            onClick={() => setShowDevPanel(!showDevPanel)}
+            className="text-[10px] text-amber-500/60 hover:text-amber-400 transition-colors font-mono"
+          >
+            [DEV{currentProfile ? `: ${currentProfile.personal.firstName}` : ""}]
+          </button>
+          {showDevPanel && (
+            <div className="mt-2 mb-1 bg-zinc-900 border border-zinc-700 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-medium text-zinc-400 font-mono">
+                  TEST PROFILES
+                </span>
+                {isOnboarded && (
+                  <button
+                    onClick={resetProfile}
+                    className="text-[10px] text-red-400 hover:text-red-300 font-mono"
+                  >
+                    RESET
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {TEST_PROFILES.map((profile) => (
+                  <button
+                    key={profile.id}
+                    onClick={() => activateProfile(profile.id)}
+                    className={`text-left px-2 py-1.5 rounded text-[11px] transition-colors ${
+                      currentProfile?.summary === profile.profile.summary
+                        ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                        : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                    }`}
+                  >
+                    {profile.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right panel - Chat */}

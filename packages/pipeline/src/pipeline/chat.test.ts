@@ -109,6 +109,19 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('WHEN TO ASK CLARIFYING QUESTIONS');
     expect(prompt).toContain('never reply with only questions');
   });
+
+  it('suppresses use of mate', () => {
+    const format = resolveResponseFormat();
+    const prompt = buildSystemPrompt('Baseline Ben', mockContext, format);
+    expect(prompt).toContain('Never use the word "mate"');
+  });
+
+  it('includes specialist referral instructions', () => {
+    const format = resolveResponseFormat();
+    const prompt = buildSystemPrompt('Baseline Ben', mockContext, format);
+    expect(prompt).toContain('SPECIALIST REFERRALS');
+    expect(prompt).toContain('<!--REFERRAL:');
+  });
 });
 
 describe('AGENT_ALIASES', () => {

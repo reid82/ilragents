@@ -15,6 +15,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Sarah',
+        email: 'sarah.chen@example.com',
+        phone: '0412 345 678',
         age: 28,
         state: 'VIC',
         dependents: 0,
@@ -86,6 +88,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'James',
+        email: 'james.mitchell@example.com',
+        phone: '0423 456 789',
         age: 35,
         state: 'VIC',
         dependents: 2,
@@ -188,6 +192,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Karen',
+        email: 'karen.wright@example.com',
+        phone: '0434 567 890',
         age: 45,
         state: 'QLD',
         dependents: 1,
@@ -308,6 +314,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Mike',
+        email: 'mike.donnelly@example.com',
+        phone: '0445 678 901',
         age: 52,
         state: 'SA',
         dependents: 0,
@@ -392,6 +400,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Linda',
+        email: 'linda.park@example.com',
+        phone: '0456 789 012',
         age: 41,
         state: 'NSW',
         dependents: 3,
@@ -503,6 +513,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Tom',
+        email: 'tom.harris@example.com',
+        phone: '0467 890 123',
         age: 31,
         state: 'WA',
         dependents: 0,
@@ -581,6 +593,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Priya',
+        email: 'priya.sharma@example.com',
+        phone: '0478 901 234',
         age: 38,
         state: 'ACT',
         dependents: 2,
@@ -675,6 +689,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Dave',
+        email: 'dave.thompson@example.com',
+        phone: '0489 012 345',
         age: 58,
         state: 'TAS',
         dependents: 0,
@@ -805,6 +821,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Anh',
+        email: 'anh.nguyen@example.com',
+        phone: '0490 123 456',
         age: 33,
         state: 'NSW',
         dependents: 1,
@@ -907,6 +925,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Rachel',
+        email: 'rachel.kelly@example.com',
+        phone: '0401 234 567',
         age: 44,
         state: 'WA',
         dependents: 2,
@@ -999,6 +1019,8 @@ export const TEST_PROFILES: TestProfile[] = [
     profile: {
       personal: {
         firstName: 'Liam',
+        email: 'liam.obrien@example.com',
+        phone: '0412 098 765',
         age: 27,
         state: 'VIC',
         dependents: 0,

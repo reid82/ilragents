@@ -90,6 +90,8 @@ export interface PropertySummary {
 
 export interface PersonalBasics {
   firstName: string;
+  email?: string;
+  phone?: string;
   age?: number;
   state: AustralianState;
   dependents?: number;

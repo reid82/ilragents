@@ -9,6 +9,9 @@ import { useClientProfileStore } from "@/lib/stores/financial-store";
 import type { AgentBriefs, ClientProfile } from "@/lib/stores/financial-store";
 import { useChatStore } from "@/lib/stores/chat-store";
 import type { Message, Source } from "@/lib/stores/chat-store";
+import { parseReferrals, SPECIALIST_TEAMS } from "@/lib/specialists";
+import type { Referral, SpecialistTeam } from "@/lib/specialists";
+import EmailDraftModal from "@/components/EmailDraftModal";
 
 const VoiceChat = dynamic(() => import("@/components/VoiceChat"), {
   ssr: false,
@@ -55,6 +58,11 @@ export default function ChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [format, setFormat] = useState<ResponseFormat>("standard");
   const [showVoice, setShowVoice] = useState(false);
+  const [emailDraft, setEmailDraft] = useState<{
+    team: SpecialistTeam;
+    subject: string;
+    body: string;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -125,7 +133,9 @@ export default function ChatPanel({
               sources = event.sources;
             } else if (event.type === "text") {
               assistantText += event.text;
-              setStreamingText(assistantText);
+              // Strip partial/complete referral tags from live display
+              const displayText = assistantText.replace(/<!--REFERRAL:.*?(-->|$)/g, "").trim();
+              setStreamingText(displayText);
             }
           } catch {
             // Skip malformed JSON
@@ -133,10 +143,13 @@ export default function ChatPanel({
         }
       }
 
+      const [cleanContent, referrals] = parseReferrals(assistantText);
+
       updateLastMessage(agentSlug, {
         role: "assistant",
-        content: assistantText,
+        content: cleanContent,
         sources,
+        referrals: referrals.length > 0 ? referrals : undefined,
       });
     } catch (error) {
       const isNetworkError =
@@ -155,6 +168,33 @@ export default function ChatPanel({
       setStreamingText(null);
       setIsLoading(false);
     }
+  }
+
+  function openEmailDraft(referral: Referral, team: SpecialistTeam, msg: Message) {
+    const name = clientProfile?.personal.firstName || "there";
+    const financialSummary = clientProfile?.summary || "";
+
+    // Find the user message that preceded this assistant message
+    const msgIndex = messages.indexOf(msg);
+    const userQuestion = msgIndex > 0 ? messages[msgIndex - 1].content : "";
+
+    const body = `Hi Team,
+
+I'm a client of the ILR program and I'd like to discuss the following with you:
+
+${referral.suggestedSubject}
+
+For context, here is the question I was exploring with my ILR advisor:
+
+"${userQuestion}"
+
+${financialSummary ? `A bit about my situation:\n${financialSummary}\n\n` : ""}I'd appreciate the opportunity to discuss this further. Please let me know a good time to connect.
+
+Kind regards,
+${name}`;
+
+
+    setEmailDraft({ team, subject: referral.suggestedSubject, body });
   }
 
   return (
@@ -240,52 +280,87 @@ export default function ChatPanel({
             : msg.content;
 
           return (
-            <div
-              key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
+            <div key={i} className="space-y-2">
+              {/* Message bubble */}
               <div
-                className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
-                  msg.role === "user"
-                    ? "bg-blue-600 text-white"
-                    : "bg-zinc-800/80 text-zinc-100"
-                }`}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
-                    {displayContent ? (
-                      <ReactMarkdown>{displayContent}</ReactMarkdown>
-                    ) : (
-                      <span className="text-zinc-400 animate-pulse">
-                        Thinking...
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {msg.content}
-                  </div>
-                )}
-
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-zinc-700">
-                    <p className="text-xs text-zinc-400 mb-2">
-                      Sources ({msg.sources.length}):
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {msg.sources.map((s, j) => (
-                        <span
-                          key={j}
-                          className="inline-block bg-zinc-700/80 text-zinc-300 text-xs px-2.5 py-1 rounded-full"
-                          title={`${s.agent} - ${(s.score * 100).toFixed(0)}% match`}
-                        >
-                          {s.title}
+                <div
+                  className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
+                    msg.role === "user"
+                      ? "bg-blue-600 text-white"
+                      : "bg-zinc-800/80 text-zinc-100"
+                  }`}
+                >
+                  {msg.role === "assistant" ? (
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+                      {displayContent ? (
+                        <ReactMarkdown>{displayContent}</ReactMarkdown>
+                      ) : (
+                        <span className="text-zinc-400 animate-pulse">
+                          Thinking...
                         </span>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {msg.content}
+                    </div>
+                  )}
+
+                  {msg.sources && msg.sources.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-zinc-700">
+                      <p className="text-xs text-zinc-400 mb-2">
+                        Sources ({msg.sources.length}):
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.sources.map((s, j) => (
+                          <span
+                            key={j}
+                            className="inline-block bg-zinc-700/80 text-zinc-300 text-xs px-2.5 py-1 rounded-full"
+                            title={`${s.agent} - ${(s.score * 100).toFixed(0)}% match`}
+                          >
+                            {s.title}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Referral cards - standalone callouts below the message */}
+              {msg.referrals && msg.referrals.length > 0 && (
+                <div className="flex justify-start">
+                  <div className="max-w-[90%] sm:max-w-[75%] space-y-2">
+                    {msg.referrals.map((ref, k) => {
+                      const team = SPECIALIST_TEAMS[ref.team];
+                      if (!team) return null;
+                      return (
+                        <button
+                          key={k}
+                          onClick={() => openEmailDraft(ref, team, msg)}
+                          className="w-full text-left bg-gradient-to-r from-blue-600/20 to-blue-600/10 border border-blue-500/30 rounded-xl px-4 py-3 hover:from-blue-600/30 hover:to-blue-600/20 hover:border-blue-500/50 transition-all group"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-blue-300 text-sm font-medium">
+                                Connect with {team.name}
+                              </p>
+                              <p className="text-zinc-400 text-xs mt-0.5">
+                                {ref.reason}
+                              </p>
+                            </div>
+                            <span className="text-blue-400 text-xs font-medium whitespace-nowrap bg-blue-600/20 px-3 py-1.5 rounded-lg group-hover:bg-blue-600/30 transition-colors">
+                              Draft email &rarr;
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -332,6 +407,19 @@ export default function ChatPanel({
               : undefined
           }
           onClose={() => setShowVoice(false)}
+        />
+      )}
+
+      {/* Email Draft Modal */}
+      {emailDraft && (
+        <EmailDraftModal
+          team={emailDraft.team}
+          subject={emailDraft.subject}
+          body={emailDraft.body}
+          replyTo={clientProfile?.personal.email || ""}
+          senderName={clientProfile?.personal.firstName || ""}
+          onClose={() => setEmailDraft(null)}
+          onSent={() => setEmailDraft(null)}
         />
       )}
     </div>

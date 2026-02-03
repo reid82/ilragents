@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Referral } from '@/lib/specialists';
 
 export interface Source {
   title: string;
@@ -12,6 +13,7 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   sources?: Source[];
+  referrals?: Referral[];
 }
 
 const MAX_MESSAGES_PER_AGENT = 50;

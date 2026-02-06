@@ -9,9 +9,12 @@ import { useClientProfileStore } from "@/lib/stores/financial-store";
 import type { AgentBriefs, ClientProfile } from "@/lib/stores/financial-store";
 import { useChatStore } from "@/lib/stores/chat-store";
 import type { Message, Source } from "@/lib/stores/chat-store";
+import { useSessionStore } from "@/lib/stores/session-store";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { parseReferrals, SPECIALIST_TEAMS } from "@/lib/specialists";
 import type { Referral, SpecialistTeam } from "@/lib/specialists";
 import EmailDraftModal from "@/components/EmailDraftModal";
+import FeedbackButton from "@/components/FeedbackButton";
 
 const VoiceChat = dynamic(() => import("@/components/VoiceChat"), {
   ssr: false,
@@ -49,6 +52,8 @@ export default function ChatPanel({
   showBackLink = false,
 }: ChatPanelProps) {
   const clientProfile = useClientProfileStore((s) => s.profile);
+  const sessionId = useSessionStore((s) => s.sessionId);
+  const authUser = useAuthStore((s) => s.user);
   const messages = useChatStore((s) => s.chats[agentSlug]) ?? EMPTY_MESSAGES;
   const addMessage = useChatStore((s) => s.addMessage);
   const updateLastMessage = useChatStore((s) => s.updateLastMessage);
@@ -324,6 +329,20 @@ ${name}`;
                           </span>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Feedback button — only on completed assistant messages */}
+                  {msg.role === "assistant" && !isLastAssistant && msg.content && (
+                    <div className="flex justify-end mt-2">
+                      <FeedbackButton
+                        agentId={agentSlug}
+                        agentName={agent.name}
+                        userQuestion={i > 0 ? messages[i - 1].content : ""}
+                        assistantMessage={msg.content}
+                        sessionId={sessionId}
+                        userId={authUser?.id}
+                      />
                     </div>
                   )}
                 </div>

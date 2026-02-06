@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { AGENTS, getAgentById, getAdvisors, getFacilitator } from "@/lib/agents";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useClientProfileStore } from "@/lib/stores/financial-store";
 import { useChatStore } from "@/lib/stores/chat-store";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { TEST_PROFILES } from "@/lib/test-profiles";
 import WarRoomTable from "@/components/WarRoomTable";
 import AgentStrip from "@/components/AgentStrip";
@@ -21,6 +24,8 @@ export default function WarRoomPage() {
   const financialClear = useClientProfileStore((s) => s.clear);
   const currentProfile = useClientProfileStore((s) => s.profile);
   const clearAllChats = useChatStore((s) => s.clearAllChats);
+
+  const user = useAuthStore((s) => s.user);
 
   const [activeAgentId, setActiveAgentId] = useState(facilitator.id);
   const [showDevPanel, setShowDevPanel] = useState(false);
@@ -74,6 +79,33 @@ export default function WarRoomPage() {
     <div className="h-screen bg-zinc-950 text-white flex flex-col md:flex-row overflow-hidden">
       {/* Desktop: Left panel - War Room Table */}
       <div className="hidden md:flex flex-col w-80 border-r border-zinc-800 flex-shrink-0">
+        {/* Auth bar */}
+        <div className="border-b border-zinc-800 px-3 py-2 flex items-center justify-between">
+          {user ? (
+            <>
+              <span className="text-xs text-zinc-400 truncate mr-2">
+                {user.email}
+              </span>
+              <button
+                onClick={async () => {
+                  const supabase = getSupabaseBrowserClient();
+                  await supabase.auth.signOut();
+                  resetProfile();
+                }}
+                className="text-xs text-zinc-400 hover:text-white whitespace-nowrap"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs text-zinc-400 hover:text-white"
+            >
+              Sign In
+            </Link>
+          )}
+        </div>
         <div className="flex-1 relative">
           <WarRoomTable
             agents={AGENTS}

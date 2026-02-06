@@ -7,6 +7,8 @@ import type { AgentDef } from "@/lib/agents";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useClientProfileStore } from "@/lib/stores/financial-store";
 import { useChatStore } from "@/lib/stores/chat-store";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { TEST_PROFILES } from "@/lib/test-profiles";
 
 function AgentCard({ agent, locked }: { agent: AgentDef; locked?: boolean }) {
@@ -111,6 +113,7 @@ export default function HomePage() {
   const financialClear = useClientProfileStore((s) => s.clear);
   const currentProfile = useClientProfileStore((s) => s.profile);
   const clearAllChats = useChatStore((s) => s.clearAllChats);
+  const user = useAuthStore((s) => s.user);
   const [showDevPanel, setShowDevPanel] = useState(false);
 
   // Hydration guard: Zustand persist reads from localStorage async
@@ -141,11 +144,41 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b border-zinc-800 px-4 sm:px-6 py-5">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-2xl font-bold tracking-tight">ILRE Agents</h1>
-          <p className="text-zinc-400 text-sm mt-1">
-            Real estate investment specialists powered by I Love Real Estate
-            materials
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">ILRE Agents</h1>
+              <p className="text-zinc-400 text-sm mt-1">
+                Real estate investment specialists powered by I Love Real Estate
+                materials
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {user ? (
+                <>
+                  <span className="text-sm text-zinc-400 hidden sm:inline">
+                    {user.email}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      const supabase = getSupabaseBrowserClient();
+                      await supabase.auth.signOut();
+                      resetProfile();
+                    }}
+                    className="text-sm text-zinc-400 hover:text-white bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="text-sm text-zinc-400 hover:text-white bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  Sign In
+                </Link>
+              )}
+            </div>
+          </div>
           {/* Dev tools */}
           {hydrated && (
             <div className="mt-2">
@@ -201,7 +234,7 @@ export default function HomePage() {
         {/* Baseline Ben - Hero Section */}
         <section className="mb-12">
           <Link
-            href={isOnboarded ? `/chat/${facilitator.id}` : '/onboarding'}
+            href={isOnboarded ? `/chat/${facilitator.id}` : (user ? '/onboarding' : '/login')}
             className="group block rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900 to-zinc-950 p-5 sm:p-8 transition-all hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/5"
             style={{ borderTopColor: facilitator.color, borderTopWidth: "3px" }}
           >

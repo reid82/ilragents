@@ -6,7 +6,7 @@ config({ path: path.resolve(process.cwd(), '../../.env') });
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { transcript, sessionId, existingProfile } = body;
+  const { transcript, sessionId, existingProfile, userId } = body;
 
   if (!transcript) {
     return NextResponse.json(
@@ -42,13 +42,18 @@ export async function POST(req: NextRequest) {
         const { getSupabaseClient } = await import('@/lib/supabase');
         const supabase = getSupabaseClient();
 
+        const row: Record<string, unknown> = {
+          session_id: sessionId,
+          raw_transcript: transcript,
+          structured_data: profileData,
+          summary: profileData.summary,
+        };
+        if (userId) {
+          row.user_id = userId;
+        }
+
         await supabase.from('financial_positions').upsert(
-          {
-            session_id: sessionId,
-            raw_transcript: transcript,
-            structured_data: profileData,
-            summary: profileData.summary,
-          },
+          row,
           { onConflict: 'session_id' }
         );
       } catch (dbError) {

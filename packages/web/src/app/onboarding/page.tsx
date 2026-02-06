@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { useSessionStore } from '@/lib/stores/session-store';
 import { useClientProfileStore } from '@/lib/stores/financial-store';
+import { useAuthStore } from '@/lib/stores/auth-store';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -17,6 +18,7 @@ export default function OnboardingPage() {
   const setSessionId = useSessionStore((s) => s.setSessionId);
   const setProfile = useClientProfileStore((s) => s.setProfile);
   const setRawTranscript = useClientProfileStore((s) => s.setRawTranscript);
+  const user = useAuthStore((s) => s.user);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -37,12 +39,16 @@ export default function OnboardingPage() {
           .map((m) => `${m.role === 'user' ? 'Client' : 'Ben'}: ${m.content}`)
           .join('\n\n');
 
-        const sessionId = crypto.randomUUID();
+        const sessionId = user?.id ?? crypto.randomUUID();
 
         const res = await fetch('/api/onboarding/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript, sessionId }),
+          body: JSON.stringify({
+            transcript,
+            sessionId,
+            userId: user?.id,
+          }),
         });
 
         if (res.ok) {
@@ -63,7 +69,7 @@ export default function OnboardingPage() {
         setIsExtracting(false);
       }
     },
-    [router, setOnboarded, setProfile, setRawTranscript, setSessionId]
+    [router, setOnboarded, setProfile, setRawTranscript, setSessionId, user]
   );
 
   const sendMessage = useCallback(

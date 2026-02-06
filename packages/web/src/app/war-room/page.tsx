@@ -89,7 +89,7 @@ export default function WarRoomPage() {
               <button
                 onClick={async () => {
                   const supabase = getSupabaseBrowserClient();
-                  await supabase.auth.signOut();
+                  await supabase?.auth.signOut();
                   resetProfile();
                 }}
                 className="text-xs text-zinc-400 hover:text-white whitespace-nowrap"

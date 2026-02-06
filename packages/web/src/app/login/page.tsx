@@ -27,6 +27,9 @@ export default function LoginPage() {
 
     try {
       const supabase = getSupabaseBrowserClient();
+      if (!supabase) {
+        throw new Error('Authentication is not configured');
+      }
 
       if (isSignUp) {
         const { error: signUpError } = await supabase.auth.signUp({

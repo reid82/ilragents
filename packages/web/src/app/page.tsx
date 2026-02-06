@@ -161,7 +161,7 @@ export default function HomePage() {
                   <button
                     onClick={async () => {
                       const supabase = getSupabaseBrowserClient();
-                      await supabase.auth.signOut();
+                      await supabase?.auth.signOut();
                       resetProfile();
                     }}
                     className="text-sm text-zinc-400 hover:text-white bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 transition-colors"

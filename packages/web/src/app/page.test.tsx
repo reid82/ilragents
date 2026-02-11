@@ -54,7 +54,7 @@ describe('HomePage', () => {
 
   it('renders page title', () => {
     render(<HomePage />);
-    expect(screen.getByText('ILRE Agents')).toBeDefined();
+    expect(screen.getByText('I Love Real Estate')).toBeDefined();
   });
 
   it('renders Baseline Ben hero', () => {

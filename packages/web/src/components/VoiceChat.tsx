@@ -1,17 +1,21 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import type { AgentDef } from '@/lib/agents';
+import AgentAvatar from '@/components/AgentAvatar';
 
 interface VoiceChatProps {
   agentSlug: string;
   agentName: string;
   agentDomain: string;
   agentColor: string;
+  agent: AgentDef;
   financialContext?: string;
   onClose: () => void;
 }
 
 export default function VoiceChat({
+  agent,
   agentSlug,
   agentName,
   agentDomain,
@@ -25,11 +29,6 @@ export default function VoiceChat({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Checking availability...');
   const [conversationRef, setConversationRef] = useState<{ endSession: () => Promise<void> } | null>(null);
-
-  const initials = agentName
-    .split(' ')
-    .map((w) => w[0])
-    .join('');
 
   // Check voice availability on mount
   useEffect(() => {
@@ -129,14 +128,13 @@ export default function VoiceChat({
 
         {/* Agent avatar */}
         <div className="mb-6">
-          <div
-            className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-3xl mx-auto transition-all ${
+          <AgentAvatar
+            agent={agent}
+            size="xl"
+            className={`mx-auto transition-all ${
               isSpeaking ? 'animate-pulse scale-110' : ''
             } ${isConnected ? 'ring-4 ring-green-500/50' : ''}`}
-            style={{ backgroundColor: agentColor }}
-          >
-            {initials}
-          </div>
+          />
         </div>
 
         <h2 className="text-xl font-bold mb-2">{agentName}</h2>

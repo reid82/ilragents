@@ -1,6 +1,7 @@
 "use client";
 
 import type { AgentDef } from "@/lib/agents";
+import AgentAvatar from "@/components/AgentAvatar";
 
 interface AgentStripProps {
   agents: AgentDef[];
@@ -26,10 +27,6 @@ export default function AgentStrip({
       {ordered.map((agent) => {
         const isActive = agent.id === activeAgentId;
         const isLocked = lockedAgentIds.includes(agent.id);
-        const initials = agent.name
-          .split(" ")
-          .map((w) => w[0])
-          .join("");
 
         return (
           <button
@@ -37,19 +34,14 @@ export default function AgentStrip({
             onClick={() => !isLocked && onSelectAgent(agent.id)}
             disabled={isLocked}
             className={`
-              flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
-              text-white font-bold text-xs transition-all duration-200
+              flex-shrink-0 transition-all duration-200
               ${isLocked ? "grayscale opacity-30 cursor-not-allowed" : "cursor-pointer"}
               ${isActive ? "ring-2 ring-offset-2 ring-offset-zinc-950 opacity-100" : ""}
               ${!isActive && !isLocked ? "opacity-50 hover:opacity-80" : ""}
             `}
-            style={{
-              backgroundColor: agent.color,
-              ...(isActive ? { ringColor: agent.color } : {}),
-            }}
             title={agent.name}
           >
-            {initials}
+            <AgentAvatar agent={agent} size="sm" />
           </button>
         );
       })}

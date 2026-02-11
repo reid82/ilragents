@@ -6,8 +6,10 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 import { useSessionStore } from '@/lib/stores/session-store';
 import { useClientProfileStore } from '@/lib/stores/financial-store';
 
-async function loadProfileFromDB(userId: string) {
-  const res = await fetch(`/api/user/profile?userId=${userId}`);
+async function loadProfileFromDB(accessToken: string) {
+  const res = await fetch('/api/user/profile', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   if (!res.ok) return null;
   const data = await res.json();
   return data.profile ?? null;
@@ -35,15 +37,16 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       const user = session?.user ?? null;
       setUser(user);
 
-      if (user) {
+      if (user && session?.access_token) {
         // Hydrate stores from DB for returning users
         setSessionId(user.id);
-        loadProfileFromDB(user.id).then((profile) => {
+        loadProfileFromDB(session.access_token).then((profile) => {
           if (profile) {
             setProfile(profile.structured_data);
             if (profile.raw_transcript) {
               setRawTranscript(profile.raw_transcript);
             }
+            useClientProfileStore.getState().clearSavedProfile();
             setOnboarded(true);
           }
           setLoading(false);
@@ -59,14 +62,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         const user = session?.user ?? null;
         setUser(user);
 
-        if (user) {
+        if (user && session?.access_token) {
           setSessionId(user.id);
-          const profile = await loadProfileFromDB(user.id);
+          const profile = await loadProfileFromDB(session.access_token);
           if (profile) {
             setProfile(profile.structured_data);
             if (profile.raw_transcript) {
               setRawTranscript(profile.raw_transcript);
             }
+            useClientProfileStore.getState().clearSavedProfile();
             setOnboarded(true);
           }
         }

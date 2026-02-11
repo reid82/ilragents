@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import { useSessionStore } from '@/lib/stores/session-store';
 import { useClientProfileStore } from '@/lib/stores/financial-store';
@@ -10,6 +12,38 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+}
+
+const ONBOARDING_STORAGE_KEY = 'ilre-onboarding-progress';
+
+function saveOnboardingProgress(msgs: Message[]) {
+  try {
+    // Only save completed messages (non-empty content)
+    const completed = msgs.filter((m) => m.content.length > 0);
+    if (completed.length > 0) {
+      localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(completed));
+    }
+  } catch {
+    // localStorage full or unavailable -- non-fatal
+  }
+}
+
+function loadOnboardingProgress(): Message[] {
+  try {
+    const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+    if (stored) return JSON.parse(stored) as Message[];
+  } catch {
+    // corrupted data -- start fresh
+  }
+  return [];
+}
+
+function clearOnboardingProgress() {
+  try {
+    localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+  } catch {
+    // non-fatal
+  }
 }
 
 export default function OnboardingPage() {
@@ -25,6 +59,7 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = useRef(false);
 
   useEffect(() => {
@@ -58,11 +93,13 @@ export default function OnboardingPage() {
           setSessionId(sessionId);
         }
 
+        clearOnboardingProgress();
         setOnboarded(true);
         router.push('/');
       } catch (error) {
         console.error('Failed to extract financial context:', error);
         // Still mark as onboarded even if extraction fails
+        clearOnboardingProgress();
         setOnboarded(true);
         router.push('/');
       } finally {
@@ -100,7 +137,8 @@ export default function OnboardingPage() {
             query: isInitial ? 'Hello, I am ready to start my onboarding assessment.' : userMessage,
             agent: 'Baseline Ben',
             history: isInitial ? [] : history,
-            responseFormat: 'concise',
+            responseFormat: 'standard',
+            mode: 'onboarding',
           }),
         });
 
@@ -129,11 +167,12 @@ export default function OnboardingPage() {
               const event = JSON.parse(data);
               if (event.type === 'text') {
                 assistantText += event.text;
+                const displayText = assistantText.replace(/\n?ONBOARDING_COMPLETE\s*$/, '').trim();
                 setMessages((prev) => {
                   const updated = [...prev];
                   updated[updated.length - 1] = {
                     role: 'assistant',
-                    content: assistantText,
+                    content: displayText,
                   };
                   return updated;
                 });
@@ -144,12 +183,16 @@ export default function OnboardingPage() {
           }
         }
 
+        // Save progress after each completed exchange
+        const cleanedText = assistantText.replace(/\n?ONBOARDING_COMPLETE\s*$/, '').trim();
+        const fullHistory = [
+          ...updatedMessages,
+          { role: 'assistant' as const, content: cleanedText },
+        ];
+        saveOnboardingProgress(fullHistory);
+
         // Check for onboarding completion signal
         if (assistantText.includes('ONBOARDING_COMPLETE')) {
-          const fullHistory = [
-            ...updatedMessages,
-            { role: 'assistant' as const, content: assistantText },
-          ];
           await handleOnboardingComplete(fullHistory);
         }
       } catch (error) {
@@ -163,16 +206,23 @@ export default function OnboardingPage() {
         });
       } finally {
         setIsLoading(false);
+        setTimeout(() => inputRef.current?.focus(), 0);
       }
     },
     [isLoading, handleOnboardingComplete]
   );
 
-  // Auto-start onboarding
+  // Restore saved progress or start fresh
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
-    sendMessage('', [], true);
+
+    const saved = loadOnboardingProgress();
+    if (saved.length > 0) {
+      setMessages(saved);
+    } else {
+      sendMessage('', [], true);
+    }
   }, [sendMessage]);
 
   function handleSend() {
@@ -185,12 +235,22 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
       <header className="border-b border-zinc-800 px-4 sm:px-6 py-4">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-xl font-bold">Welcome to ILRE Agents</h1>
-          <p className="text-zinc-400 text-sm mt-1">
-            Let Baseline Ben learn about your financial position to personalise
-            your experience.
-          </p>
+        <div className="max-w-3xl mx-auto flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-white rounded-lg px-2.5 py-1 flex-shrink-0">
+              <Image src="/ilre-logo.png" alt="I Love Real Estate" width={100} height={47} className="h-7 w-auto" />
+            </div>
+            <p className="text-zinc-400 text-sm">
+              Let Baseline Ben learn about your financial position to personalise
+              your experience.
+            </p>
+          </div>
+          <Link
+            href="/"
+            className="text-sm text-zinc-400 hover:text-white bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap flex-shrink-0"
+          >
+            &larr; Back
+          </Link>
         </div>
       </header>
 
@@ -203,7 +263,7 @@ export default function OnboardingPage() {
             <div
               className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
                 msg.role === 'user'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-red-600 text-white'
                   : 'bg-zinc-800/80 text-zinc-100'
               }`}
             >
@@ -233,7 +293,7 @@ export default function OnboardingPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-zinc-800 px-4 sm:px-6 py-4">
+      <div className="border-t border-zinc-800 px-4 sm:px-6 py-4 pb-12">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -242,17 +302,19 @@ export default function OnboardingPage() {
           className="flex gap-3 max-w-3xl mx-auto"
         >
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Tell Ben about your situation..."
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isLoading || isExtracting}
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            disabled={isExtracting}
+            autoFocus
           />
           <button
             type="submit"
             disabled={isLoading || isExtracting || !input.trim()}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
           >
             {isLoading ? '...' : 'Send'}
           </button>

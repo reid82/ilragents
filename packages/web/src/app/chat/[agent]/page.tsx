@@ -22,7 +22,7 @@ export default function ChatPage({
       <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Agent not found</h1>
-          <Link href="/" className="text-blue-400 hover:underline">
+          <Link href="/" className="text-red-400 hover:underline">
             Back to Round Table
           </Link>
         </div>

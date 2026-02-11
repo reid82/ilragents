@@ -197,22 +197,70 @@ export type FinancialPosition = ClientProfile;
 interface ClientProfileState {
   profile: ClientProfile | null;
   rawTranscript: string | null;
+
+  // Saved "real" profile (from onboarding) so test profile switching doesn't lose it
+  savedProfile: ClientProfile | null;
+  savedRawTranscript: string | null;
+  savedSessionId: string | null;
+
   setProfile: (profile: ClientProfile) => void;
   setRawTranscript: (transcript: string) => void;
   clear: () => void;
+
+  saveCurrentProfile: (sessionId: string) => void;
+  restoreSavedProfile: () => string | null;
+  clearSavedProfile: () => void;
 }
 
 export const useClientProfileStore = create<ClientProfileState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       profile: null,
       rawTranscript: null,
+      savedProfile: null,
+      savedRawTranscript: null,
+      savedSessionId: null,
+
       setProfile: (profile) => set({ profile }),
       setRawTranscript: (transcript) => set({ rawTranscript: transcript }),
       clear: () => set({ profile: null, rawTranscript: null }),
+
+      saveCurrentProfile: (sessionId) => {
+        const { profile, rawTranscript } = get();
+        set({
+          savedProfile: profile ? structuredClone(profile) : null,
+          savedRawTranscript: rawTranscript,
+          savedSessionId: sessionId,
+        });
+      },
+
+      restoreSavedProfile: () => {
+        const { savedProfile, savedRawTranscript, savedSessionId } = get();
+        if (!savedProfile) return null;
+        set({
+          profile: structuredClone(savedProfile),
+          rawTranscript: savedRawTranscript,
+        });
+        return savedSessionId;
+      },
+
+      clearSavedProfile: () =>
+        set({ savedProfile: null, savedRawTranscript: null, savedSessionId: null }),
     }),
     {
       name: 'ilre-client-profile',
+      version: 2,
+      migrate: (persisted, version) => {
+        if (version < 2) {
+          return {
+            ...(persisted as Record<string, unknown>),
+            savedProfile: null,
+            savedRawTranscript: null,
+            savedSessionId: null,
+          };
+        }
+        return persisted as ClientProfileState;
+      },
     }
   )
 );

@@ -4,6 +4,7 @@ export interface AgentDef {
   domain: string;
   description: string;
   color: string;
+  avatarUrl: string;
   ragAgents: string[];
   contextLimit: number;
   isFacilitator?: boolean;
@@ -17,6 +18,8 @@ export const AGENTS: AgentDef[] = [
     description:
       "Your starting point. Ben establishes your financial position and covers strategy, fundamentals, and portfolio planning.",
     color: "#3B82F6",
+    avatarUrl:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=BaselineBen&backgroundColor=3B82F6&skinColor=f2d3b1",
     ragAgents: ["Navigator Nate", "Foundation Frank", "Roadmap Ray"],
     contextLimit: 15,
     isFacilitator: true,
@@ -28,6 +31,8 @@ export const AGENTS: AgentDef[] = [
     description:
       "Knows how to find, evaluate, and secure the right investment properties.",
     color: "#10B981",
+    avatarUrl:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=FinderFred&backgroundColor=10B981&skinColor=ecad80",
     ragAgents: ["Finder Fred"],
     contextLimit: 15,
   },
@@ -38,6 +43,8 @@ export const AGENTS: AgentDef[] = [
     description:
       "Covers subdivision, equity strategies, yield optimisation, tenancy management, and strata matters.",
     color: "#22C55E",
+    avatarUrl:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=InvestorCoach&backgroundColor=22C55E&skinColor=d08b5b",
     ragAgents: [
       "Splitter Steve",
       "Equity Eddie",
@@ -54,6 +61,8 @@ export const AGENTS: AgentDef[] = [
     description:
       "Specialist in asset protection, legal structures, tax depreciation, joint ventures, and creative deal strategies.",
     color: "#8B5CF6",
+    avatarUrl:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=DealSpecialist&backgroundColor=8B5CF6&skinColor=f2d3b1",
     ragAgents: ["Teflon Terry", "Depreciation Dave", "Venture Vince"],
     contextLimit: 20,
   },

@@ -15,6 +15,7 @@ import { parseReferrals, SPECIALIST_TEAMS } from "@/lib/specialists";
 import type { Referral, SpecialistTeam } from "@/lib/specialists";
 import EmailDraftModal from "@/components/EmailDraftModal";
 import FeedbackButton from "@/components/FeedbackButton";
+import AgentAvatar from "@/components/AgentAvatar";
 
 const VoiceChat = dynamic(() => import("@/components/VoiceChat"), {
   ssr: false,
@@ -69,6 +70,7 @@ export default function ChatPanel({
     body: string;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -89,7 +91,7 @@ export default function ChatPanel({
     try {
       const history = messages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content: m.content.replace(/<!--REFERRAL:[\s\S]*?-->/g, "").trim(),
       }));
 
       const res = await fetch("/api/chat/stream", {
@@ -139,7 +141,7 @@ export default function ChatPanel({
             } else if (event.type === "text") {
               assistantText += event.text;
               // Strip partial/complete referral tags from live display
-              const displayText = assistantText.replace(/<!--REFERRAL:.*?(-->|$)/g, "").trim();
+              const displayText = assistantText.replace(/<!--REFERRAL:[\s\S]*?(-->|$)/g, "").trim();
               setStreamingText(displayText);
             }
           } catch {
@@ -172,6 +174,7 @@ export default function ChatPanel({
     } finally {
       setStreamingText(null);
       setIsLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   }
 
@@ -215,15 +218,7 @@ ${name}`;
           </Link>
         )}
         <div className="flex items-center gap-3 flex-1">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
-            style={{ backgroundColor: agent.color }}
-          >
-            {agent.name
-              .split(" ")
-              .map((w) => w[0])
-              .join("")}
-          </div>
+          <AgentAvatar agent={agent} size="sm" />
           <div>
             <h1 className="font-semibold text-lg">{agent.name}</h1>
             <p className="text-zinc-400 text-sm">{agent.domain}</p>
@@ -234,15 +229,16 @@ ${name}`;
           <select
             value={format}
             onChange={(e) => setFormat(e.target.value as ResponseFormat)}
-            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500"
           >
             <option value="concise">Concise</option>
             <option value="standard">Standard</option>
             <option value="detailed">Detailed</option>
           </select>
           <button
-            onClick={() => setShowVoice(true)}
-            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-white hover:bg-zinc-700 transition-colors"
+            disabled
+            title="Coming Soon"
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-500 cursor-not-allowed opacity-50"
           >
             Voice
           </button>
@@ -259,15 +255,7 @@ ${name}`;
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
         {messages.length === 0 && (
           <div className="text-center text-zinc-500 mt-20">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl mx-auto mb-4"
-              style={{ backgroundColor: agent.color }}
-            >
-              {agent.name
-                .split(" ")
-                .map((w) => w[0])
-                .join("")}
-            </div>
+            <AgentAvatar agent={agent} size="lg" className="mx-auto mb-4" />
             <p className="text-lg font-medium mb-2">
               Ask {agent.name} anything
             </p>
@@ -280,9 +268,11 @@ ${name}`;
             isLoading &&
             msg.role === "assistant" &&
             i === messages.length - 1;
-          const displayContent = isLastAssistant
+          const rawContent = isLastAssistant
             ? (streamingText ?? msg.content)
             : msg.content;
+          // Defensive strip: catch any referral tags that slipped through
+          const displayContent = rawContent?.replace(/<!--REFERRAL:[\s\S]*?(-->|$)/g, "").trim() || rawContent;
 
           return (
             <div key={i} className="space-y-2">
@@ -293,7 +283,7 @@ ${name}`;
                 <div
                   className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
                     msg.role === "user"
-                      ? "bg-blue-600 text-white"
+                      ? "bg-red-600 text-white"
                       : "bg-zinc-800/80 text-zinc-100"
                   }`}
                 >
@@ -359,18 +349,18 @@ ${name}`;
                         <button
                           key={k}
                           onClick={() => openEmailDraft(ref, team, msg)}
-                          className="w-full text-left bg-gradient-to-r from-blue-600/20 to-blue-600/10 border border-blue-500/30 rounded-xl px-4 py-3 hover:from-blue-600/30 hover:to-blue-600/20 hover:border-blue-500/50 transition-all group"
+                          className="w-full text-left bg-gradient-to-r from-red-600/20 to-red-600/10 border border-red-500/30 rounded-xl px-4 py-3 hover:from-red-600/30 hover:to-red-600/20 hover:border-red-500/50 transition-all group"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-blue-300 text-sm font-medium">
+                              <p className="text-red-300 text-sm font-medium">
                                 Connect with {team.name}
                               </p>
                               <p className="text-zinc-400 text-xs mt-0.5">
                                 {ref.reason}
                               </p>
                             </div>
-                            <span className="text-blue-400 text-xs font-medium whitespace-nowrap bg-blue-600/20 px-3 py-1.5 rounded-lg group-hover:bg-blue-600/30 transition-colors">
+                            <span className="text-red-400 text-xs font-medium whitespace-nowrap bg-red-600/20 px-3 py-1.5 rounded-lg group-hover:bg-red-600/30 transition-colors">
                               Draft email &rarr;
                             </span>
                           </div>
@@ -387,7 +377,10 @@ ${name}`;
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-800 px-6 py-4">
+      <div className="border-t border-zinc-800 px-6 py-4 pb-12">
+        <p className="text-[11px] text-zinc-500 text-center mb-2 max-w-2xl mx-auto">
+          Thanks for testing! Please use the feedback button on any response to help us improve.
+        </p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -396,17 +389,18 @@ ${name}`;
           className="flex gap-3 max-w-4xl mx-auto"
         >
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={`Ask ${agent.name}...`}
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isLoading}
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            autoFocus
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
           >
             {isLoading ? "..." : "Send"}
           </button>
@@ -416,6 +410,7 @@ ${name}`;
       {/* Voice Chat Modal */}
       {showVoice && (
         <VoiceChat
+          agent={agent}
           agentSlug={agent.id}
           agentName={agent.name}
           agentDomain={agent.domain}

@@ -1,6 +1,7 @@
 "use client";
 
 import type { AgentDef } from "@/lib/agents";
+import AgentAvatar from "@/components/AgentAvatar";
 import "./war-room-table.css";
 
 interface WarRoomTableProps {
@@ -107,10 +108,6 @@ export default function WarRoomTable({
           const isActive = agent.id === activeAgentId;
           const isLocked = lockedAgentIds.includes(agent.id);
           const pos = placeOnCircle(i, orderedAgents.length, tableRadius);
-          const initials = agent.name
-            .split(" ")
-            .map((w) => w[0])
-            .join("");
 
           return (
             <div key={agent.id} className="absolute" style={{ ...pos, transform: "translate(-50%, -50%)" }}>
@@ -125,17 +122,16 @@ export default function WarRoomTable({
                 disabled={isLocked}
                 className={`
                   relative w-11 h-11 rounded-full flex items-center justify-center
-                  text-white font-bold text-xs transition-all duration-200
+                  transition-all duration-200
                   ${isActive ? "scale-115 z-10" : ""}
                   ${isLocked ? "grayscale cursor-not-allowed opacity-40" : ""}
                   ${!isActive && !isLocked ? "opacity-60 hover:opacity-100 cursor-pointer" : ""}
                 `}
-                style={{
-                  backgroundColor: agent.color,
-                  ...(isActive
+                style={
+                  isActive
                     ? { "--seat-color": hexToRgba(agent.color, 0.7) } as React.CSSProperties
-                    : {}),
-                }}
+                    : {}
+                }
                 title={`${agent.name} - ${agent.domain}`}
               >
                 {/* Glow ring behind active seat */}
@@ -148,7 +144,7 @@ export default function WarRoomTable({
                     } as React.CSSProperties}
                   />
                 )}
-                <span className="relative z-10">{initials}</span>
+                <AgentAvatar agent={agent} size="sm" className="w-11 h-11 relative z-10" />
               </button>
               {/* Agent name below seat */}
               <span

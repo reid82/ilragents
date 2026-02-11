@@ -49,7 +49,7 @@ export interface Referral {
 export function parseReferrals(content: string): [string, Referral[]] {
   const referrals: Referral[] = [];
   const cleaned = content.replace(
-    /<!--REFERRAL:(.*?)-->/g,
+    /<!--REFERRAL:([\s\S]*?)-->/g,
     (_, json) => {
       try {
         referrals.push(JSON.parse(json));

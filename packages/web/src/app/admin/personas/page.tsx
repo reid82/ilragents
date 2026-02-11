@@ -170,7 +170,7 @@ export default function PersonasAdminPage() {
                   onChange={(e) => setSystemPromptOverride(e.target.value)}
                   rows={8}
                   placeholder="Leave empty to use the default RAG-grounded prompt. Override to use a custom system prompt as the base."
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 resize-y"
                 />
               </div>
 
@@ -183,7 +183,7 @@ export default function PersonasAdminPage() {
                   onChange={(e) => setPersonalityTraits(e.target.value)}
                   rows={4}
                   placeholder="Describe personality traits, speaking style, tone, etc."
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 resize-y"
                 />
               </div>
 
@@ -196,7 +196,7 @@ export default function PersonasAdminPage() {
                   onChange={(e) => setGreetingMessage(e.target.value)}
                   rows={3}
                   placeholder="The initial greeting when a user opens this agent's chat."
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 resize-y"
                 />
               </div>
 
@@ -209,7 +209,7 @@ export default function PersonasAdminPage() {
                   value={elevenlabsAgentId}
                   onChange={(e) => setElevenlabsAgentId(e.target.value)}
                   placeholder="Paste the ElevenLabs agent ID for voice chat"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono"
                 />
               </div>
 
@@ -228,7 +228,7 @@ export default function PersonasAdminPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>

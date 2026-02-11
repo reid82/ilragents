@@ -10,7 +10,7 @@ function getOpenRouterClient(): OpenAI {
     apiKey,
     defaultHeaders: {
       'HTTP-Referer': 'https://ilragents.app',
-      'X-Title': 'ILRE Agents Onboarding',
+      'X-Title': 'I Love Real Estate Onboarding',
     },
   });
 }

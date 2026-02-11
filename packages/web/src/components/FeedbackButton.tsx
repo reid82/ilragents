@@ -91,19 +91,23 @@ export default function FeedbackButton({
         onClick={() => {
           if (status !== 'sent') setIsOpen(!isOpen);
         }}
-        className="text-zinc-600 hover:text-zinc-400 transition-colors p-1"
+        className="flex items-center gap-1.5 text-zinc-600 hover:text-zinc-400 transition-colors p-1"
         title="Give feedback on this response"
       >
         {status === 'sent' ? (
-          // Checkmark icon
-          <svg className="w-4 h-4 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
+          <>
+            <svg className="w-4 h-4 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span className="text-xs text-green-400">Thanks!</span>
+          </>
         ) : (
-          // Chat bubble icon
-          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zm-4 0H9v2h2V9z" clipRule="evenodd" />
-          </svg>
+          <>
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zm-4 0H9v2h2V9z" clipRule="evenodd" />
+            </svg>
+            <span className="text-xs">Give feedback on this response</span>
+          </>
         )}
       </button>
 
@@ -120,7 +124,7 @@ export default function FeedbackButton({
               onKeyDown={handleKeyDown}
               placeholder="What's wrong with this response?"
               rows={3}
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-red-500 resize-none"
             />
             <div className="flex items-center justify-between mt-2">
               <span className="text-[10px] text-zinc-500">
@@ -129,7 +133,7 @@ export default function FeedbackButton({
               <button
                 onClick={handleSubmit}
                 disabled={!comment.trim() || status === 'sending'}
-                className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md transition-colors"
+                className="text-xs bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md transition-colors"
               >
                 {status === 'sending' ? 'Sending...' : 'Submit'}
               </button>

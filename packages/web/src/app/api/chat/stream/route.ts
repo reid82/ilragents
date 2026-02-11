@@ -8,7 +8,7 @@ config({ path: path.resolve(process.cwd(), "../../.env") });
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { query, agent, history = [], responseFormat, financialContext } = body;
+  const { query, agent, history = [], responseFormat, financialContext, mode } = body;
 
   if (!query || !agent) {
     return new Response(JSON.stringify({ error: "query and agent are required" }), {
@@ -35,11 +35,17 @@ export async function POST(req: NextRequest) {
       // Non-fatal: proceed without persona override
     }
 
+    // In onboarding mode, use the dedicated interview prompt and skip RAG
+    if (mode === "onboarding") {
+      const { ONBOARDING_SYSTEM_PROMPT } = await import("@/lib/onboarding-prompt");
+      systemPromptOverride = ONBOARDING_SYSTEM_PROMPT;
+    }
+
     const { chatStream } = await import("@ilre/pipeline/chat");
 
-    // Look up agent-specific context limit
+    // Look up agent-specific context limit (0 in onboarding to skip RAG)
     const agentDef = AGENTS.find((a) => a.name === agent);
-    const contextLimit = agentDef?.contextLimit;
+    const contextLimit = mode === "onboarding" ? 0 : agentDef?.contextLimit;
 
     const { stream: textStream, sources } = await chatStream(query, history, {
       agent,

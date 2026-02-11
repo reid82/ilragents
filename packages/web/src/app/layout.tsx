@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ILRE Agents - Real Estate Investment Specialists",
+  title: "I Love Real Estate - Property Investment Advisors",
   description:
-    "Access AI-powered real estate investment specialists trained on I Love Real Estate materials.",
+    "AI-powered property investment advisors trained on I Love Real Estate materials.",
 };
 
 export default function RootLayout({
@@ -29,7 +29,30 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Pre-production banner */}
+        <div className="fixed bottom-6 right-0 z-[60] overflow-hidden pointer-events-none" style={{ width: 150, height: 150 }}>
+          <div
+            className="absolute bg-amber-500 text-black text-xs font-bold text-center py-1"
+            style={{
+              width: 200,
+              bottom: 28,
+              right: -50,
+              transform: "rotate(-45deg)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            }}
+          >
+            TESTING ONLY
+          </div>
+        </div>
         <AuthProvider>{children}</AuthProvider>
+        {/* Site-wide disclaimer */}
+        <div className="fixed bottom-0 inset-x-0 z-50 bg-zinc-900/95 border-t border-zinc-700 px-4 py-2 text-center">
+          <p className="text-[11px] text-zinc-500 leading-snug max-w-3xl mx-auto">
+            This application is in early development and is not ready for production use.
+            All responses are AI-generated and may contain errors. Nothing here constitutes financial,
+            legal, or investment advice. Always consult qualified professionals before making investment decisions.
+          </p>
+        </div>
       </body>
     </html>
   );

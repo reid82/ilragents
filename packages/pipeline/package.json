@@ -7,7 +7,9 @@
     "./chat": "./src/pipeline/chat.ts",
     "./rag": "./src/pipeline/rag/index.ts",
     "./rag/types": "./src/pipeline/rag/types.ts",
-    "./types": "./src/pipeline/types.ts"
+    "./types": "./src/pipeline/types.ts",
+    "./listing": "./src/pipeline/extractors/listing-scraper.ts",
+    "./listing-types": "./src/pipeline/extractors/listing-types.ts"
   },
   "scripts": {
     "pipeline": "tsx src/pipeline/cli.ts",

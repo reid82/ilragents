@@ -61,6 +61,30 @@ export interface ScrapeResult {
   errors: string[];
 }
 
+/** Structured Australian address extracted from user message */
+export interface ParsedAddress {
+  streetNumber: string;
+  streetName: string;
+  streetType?: string;
+  unitNumber?: string;
+  suburb: string;
+  state?: string;
+  postcode?: string;
+}
+
+/** Format a parsed address into a single-line search string */
+export function formatAddressForSearch(addr: ParsedAddress): string {
+  const parts: string[] = [];
+  if (addr.unitNumber) parts.push(`${addr.unitNumber}/`);
+  parts.push(addr.streetNumber);
+  parts.push(addr.streetName);
+  if (addr.streetType) parts.push(addr.streetType);
+  parts.push(addr.suburb);
+  if (addr.state) parts.push(addr.state);
+  if (addr.postcode) parts.push(addr.postcode);
+  return parts.join(' ').replace('/ ', '/');
+}
+
 /** Detect whether a string is a supported listing URL */
 export function detectListingUrl(text: string): { url: string; source: 'domain' | 'rea' } | null {
   const domainMatch = text.match(/(https?:\/\/(?:www\.)?domain\.com\.au\/[^\s]+)/i);

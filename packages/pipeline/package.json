@@ -10,7 +10,10 @@
     "./types": "./src/pipeline/types.ts",
     "./listing": "./src/pipeline/extractors/listing-scraper.ts",
     "./listing-types": "./src/pipeline/extractors/listing-types.ts",
-    "./calculators": "./src/pipeline/calculators/index.ts"
+    "./calculators": "./src/pipeline/calculators/index.ts",
+    "./address-extractor": "./src/pipeline/extractors/address-extractor.ts",
+    "./domain-api": "./src/pipeline/extractors/domain-api.ts",
+    "./listing-lookup": "./src/pipeline/extractors/listing-lookup.ts"
   },
   "scripts": {
     "pipeline": "tsx src/pipeline/cli.ts",

@@ -56,7 +56,7 @@ Do NOT mention referrals in your conversational text - the system renders them a
 /**
  * Format listing data as a context block for injection into the system prompt
  */
-export function buildListingDataBlock(listing: Record<string, unknown>): string {
+export function buildListingDataBlock(listing: unknown): string {
   return `
 ── PROPERTY LISTING DATA ─────────────────────────────────
 ${JSON.stringify(listing, null, 2)}

@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import type { ListingData } from './listing-types';
+import type { ListingData, ParsedAddress } from './listing-types';
 
 /**
  * Fetch HTML from a URL with browser-like headers
@@ -163,4 +163,50 @@ export async function scrapeListing(url: string): Promise<ListingData> {
   }
 
   throw new Error(`Unsupported listing URL: ${url}`);
+}
+
+/**
+ * Search realestate.com.au for a listing matching the given address.
+ * Returns the first matching ListingData or null.
+ */
+export async function searchReaByAddress(address: ParsedAddress): Promise<ListingData | null> {
+  try {
+    const suburb = address.suburb.toLowerCase().replace(/\s+/g, '-');
+    const state = address.state?.toLowerCase() || '';
+    const postcode = address.postcode || '';
+
+    let searchUrl = `https://www.realestate.com.au/buy/in-${suburb}`;
+    if (state) searchUrl += `,+${state}`;
+    if (postcode) searchUrl += `+${postcode}`;
+    searchUrl += '/list-1';
+
+    const html = await fetchHtml(searchUrl);
+    const $ = cheerio.load(html);
+
+    // REA search results contain listing cards with links to individual listings
+    // Look for links matching the street address
+    const streetSearch = `${address.streetNumber} ${address.streetName}`.toLowerCase();
+    let matchedUrl: string | null = null;
+
+    $('a[href*="/property-"]').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const text = $(el).text().toLowerCase();
+      const hrefLower = href.toLowerCase();
+
+      if (text.includes(streetSearch) || hrefLower.includes(streetSearch.replace(/\s+/g, '-'))) {
+        matchedUrl = href.startsWith('http')
+          ? href
+          : `https://www.realestate.com.au${href}`;
+        return false; // break
+      }
+    });
+
+    if (!matchedUrl) return null;
+
+    // Scrape the matched listing using existing parser
+    const listingHtml = await fetchHtml(matchedUrl);
+    return parseReaListing(listingHtml, matchedUrl);
+  } catch {
+    return null;
+  }
 }

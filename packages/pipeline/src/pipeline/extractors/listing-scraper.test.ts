@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { parseDomainListing, parseReaListing } from './listing-scraper';
+import { describe, it, expect, vi } from 'vitest';
+import { parseDomainListing, parseReaListing, searchReaByAddress } from './listing-scraper';
 import { detectListingUrl } from './listing-types';
+import type { ParsedAddress } from './listing-types';
 
 describe('detectListingUrl', () => {
   it('detects domain.com.au URL', () => {
@@ -95,5 +96,57 @@ describe('parseDomainListing', () => {
     expect(result.bedrooms).toBeNull();
     expect(result.price).toBeNull();
     expect(result.agentName).toBeNull();
+  });
+});
+
+describe('searchReaByAddress', () => {
+  it('builds the correct REA search URL', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      text: () => Promise.resolve('<html><body>No results</body></html>'),
+    } as Response);
+
+    const addr: ParsedAddress = {
+      streetNumber: '42',
+      streetName: 'Smith',
+      streetType: 'St',
+      suburb: 'Richmond',
+      state: 'VIC',
+      postcode: '3121',
+    };
+
+    await searchReaByAddress(addr);
+
+    expect(fetchSpy.mock.calls[0][0]).toContain('realestate.com.au/buy/in-richmond');
+    fetchSpy.mockRestore();
+  });
+
+  it('returns null when no matching listing is found', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      text: () => Promise.resolve('<html><body>No results found</body></html>'),
+    } as Response);
+
+    const result = await searchReaByAddress({
+      streetNumber: '999',
+      streetName: 'Nonexistent',
+      suburb: 'Nowhere',
+    });
+
+    expect(result).toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('returns null on fetch error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+
+    const result = await searchReaByAddress({
+      streetNumber: '42',
+      streetName: 'Smith',
+      suburb: 'Richmond',
+    });
+
+    expect(result).toBeNull();
+    vi.restoreAllMocks();
   });
 });

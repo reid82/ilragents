@@ -62,3 +62,14 @@ export function buildListingDataBlock(listing: unknown): string {
 ${JSON.stringify(listing, null, 2)}
 ──────────────────────────────────────────────────────────`;
 }
+
+/** Build a context block for when address lookup was attempted but no listing found */
+export function buildLookupFailedBlock(addressSearched: string): string {
+  return `
+── PROPERTY LOOKUP RESULT ─────────────────────────────────
+Address searched: ${addressSearched}
+Status: No active listing found on Domain or REA
+Action: Ask the user to provide key property details manually
+  (purchase price, weekly rent estimate, beds/baths, land size, property type)
+──────────────────────────────────────────────────────────`;
+}

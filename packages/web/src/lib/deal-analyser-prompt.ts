@@ -65,11 +65,24 @@ ${JSON.stringify(listing, null, 2)}
 
 /** Build a context block for when address lookup was attempted but no listing found */
 export function buildLookupFailedBlock(addressSearched: string): string {
+  const suburb = addressSearched.split(' ').slice(-3).join(' '); // rough suburb+state+postcode
+  const domainSearch = `https://www.domain.com.au/sale/?terms=${encodeURIComponent(addressSearched)}`;
+  const reaSearch = `https://www.realestate.com.au/buy/in-${suburb.toLowerCase().replace(/\s+/g, '-')}/list-1`;
+
   return `
-── PROPERTY LOOKUP RESULT ─────────────────────────────────
-Address searched: ${addressSearched}
-Status: No active listing found on Domain or REA
-Action: Ask the user to provide key property details manually
-  (purchase price, weekly rent estimate, beds/baths, land size, property type)
+── PROPERTY ADDRESS DETECTED ─────────────────────────────────
+Address: ${addressSearched}
+Listing lookup: No active listing was found automatically.
+Search links (share with user if helpful):
+  Domain: ${domainSearch}
+  REA: ${reaSearch}
+
+IMPORTANT: The user asked about this specific property address.
+You know the address. Proceed with your analysis using what you know:
+- Acknowledge the specific address they asked about
+- Ask them to either paste a listing URL from Domain/REA, OR provide key details manually:
+  purchase price (or estimate), expected weekly rent, beds/baths, land size, property type
+- If they provide details, run your full deal analysis on those numbers
+- You can still discuss the suburb, strategy options, and general assessment while waiting for specifics
 ──────────────────────────────────────────────────────────`;
 }

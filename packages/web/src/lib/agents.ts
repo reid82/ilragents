@@ -87,7 +87,7 @@ export const AGENTS: AgentDef[] = [
     color: "#EF4444",
     avatarUrl:
       "https://api.dicebear.com/9.x/adventurer/svg?seed=FISOPhil&backgroundColor=EF4444&skinColor=ecad80",
-    ragAgents: ["Foundation Frank", "ILR Methodology"],
+    ragAgents: ["Foundation Frank", "Yield Yates", "ILR Methodology"],
     contextLimit: 15,
   },
 ];

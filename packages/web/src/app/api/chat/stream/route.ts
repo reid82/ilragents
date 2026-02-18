@@ -41,47 +41,36 @@ export async function POST(req: NextRequest) {
       systemPromptOverride = ONBOARDING_SYSTEM_PROMPT;
     }
 
-    // Deal Analyser Dan: detect listing URLs and scrape, use custom prompt
-    if (agent === "Deal Analyser Dan") {
+    // Deal analysis agents: detect listing URLs and scrape, use custom prompts
+    if (agent === "Deal Analyser Dan" || agent === "FISO Phil") {
       const { detectListingUrl } = await import("@ilre/pipeline/listing-types");
       const detected = detectListingUrl(query);
 
-      if (detected) {
-        try {
-          const { scrapeListing } = await import("@ilre/pipeline/listing");
-          const listing = await scrapeListing(detected.url);
-          const { DEAL_ANALYSER_SYSTEM_PROMPT, buildListingDataBlock } = await import("@/lib/deal-analyser-prompt");
-          systemPromptOverride = DEAL_ANALYSER_SYSTEM_PROMPT + "\n\n" + buildListingDataBlock(listing);
-        } catch (scrapeError) {
-          console.error("Listing scrape failed:", scrapeError);
-          const { DEAL_ANALYSER_SYSTEM_PROMPT } = await import("@/lib/deal-analyser-prompt");
-          systemPromptOverride = DEAL_ANALYSER_SYSTEM_PROMPT;
+      const isPhil = agent === "FISO Phil";
+      const getBasePrompt = async () => {
+        if (isPhil) {
+          const { FISO_PHIL_SYSTEM_PROMPT } = await import("@/lib/fiso-phil-prompt");
+          return FISO_PHIL_SYSTEM_PROMPT;
         }
-      } else if (!systemPromptOverride) {
         const { DEAL_ANALYSER_SYSTEM_PROMPT } = await import("@/lib/deal-analyser-prompt");
-        systemPromptOverride = DEAL_ANALYSER_SYSTEM_PROMPT;
-      }
-    }
-
-
-    // FISO Phil: detect listing URLs and scrape, use custom prompt
-    if (agent === "FISO Phil" && !systemPromptOverride) {
-      const { detectListingUrl } = await import("@ilre/pipeline/listing-types");
-      const detected = detectListingUrl(query);
-
-      const { FISO_PHIL_SYSTEM_PROMPT } = await import("@/lib/fiso-phil-prompt");
+        return DEAL_ANALYSER_SYSTEM_PROMPT;
+      };
 
       if (detected) {
+        // URL found: always scrape and use agent's custom prompt (overrides Supabase persona)
+        const basePrompt = await getBasePrompt();
         try {
           const { scrapeListing } = await import("@ilre/pipeline/listing");
           const listing = await scrapeListing(detected.url);
           const { buildListingDataBlock } = await import("@/lib/deal-analyser-prompt");
-          systemPromptOverride = FISO_PHIL_SYSTEM_PROMPT + "\n\n" + buildListingDataBlock(listing);
-        } catch {
-          systemPromptOverride = FISO_PHIL_SYSTEM_PROMPT;
+          systemPromptOverride = basePrompt + "\n\n" + buildListingDataBlock(listing);
+        } catch (scrapeError) {
+          console.error("Listing scrape failed:", scrapeError);
+          systemPromptOverride = basePrompt;
         }
-      } else {
-        systemPromptOverride = FISO_PHIL_SYSTEM_PROMPT;
+      } else if (!systemPromptOverride) {
+        // No URL and no Supabase persona: use agent's custom prompt
+        systemPromptOverride = await getBasePrompt();
       }
     }
 

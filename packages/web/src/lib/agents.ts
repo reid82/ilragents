@@ -66,6 +66,18 @@ export const AGENTS: AgentDef[] = [
     ragAgents: ["Teflon Terry", "Depreciation Dave", "Venture Vince"],
     contextLimit: 20,
   },
+  {
+    id: "deal-analyser-dan",
+    name: "Deal Analyser Dan",
+    domain: "Deal Analysis & Assessment",
+    description:
+      "Paste a property listing URL or address and Dan will scrape the data, pull in your financial position, and walk you through an ILR deal assessment.",
+    color: "#F59E0B",
+    avatarUrl:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=DealAnalyserDan&backgroundColor=F59E0B&skinColor=f2d3b1",
+    ragAgents: ["Finder Fred", "Foundation Frank", "Yield Yates", "ILR Methodology"],
+    contextLimit: 25,
+  },
 ];
 
 export function getAgentById(id: string): AgentDef | undefined {

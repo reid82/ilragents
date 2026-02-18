@@ -29,6 +29,7 @@ const AGENT_BRIEF_KEYS: Record<string, keyof AgentBriefs> = {
   "finder-fred": "finderFred",
   "investor-coach": "investorCoach",
   "deal-specialist": "dealSpecialist",
+  "deal-analyser-dan": "finderFred",
 };
 
 function buildFinancialContext(

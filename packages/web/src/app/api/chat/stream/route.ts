@@ -68,9 +68,30 @@ export async function POST(req: NextRequest) {
           console.error("Listing scrape failed:", scrapeError);
           systemPromptOverride = basePrompt;
         }
-      } else if (!systemPromptOverride) {
-        // No URL and no Supabase persona: use agent's custom prompt
-        systemPromptOverride = await getBasePrompt();
+      } else {
+        // No URL: try address lookup
+        try {
+          const { lookupListingByAddress } = await import("@ilre/pipeline/listing-lookup");
+          const lookupResult = await lookupListingByAddress(query);
+
+          if (lookupResult.status === 'found' && lookupResult.listing) {
+            const basePrompt = await getBasePrompt();
+            const { buildListingDataBlock } = await import("@/lib/deal-analyser-prompt");
+            systemPromptOverride = basePrompt + "\n\n" + buildListingDataBlock(lookupResult.listing);
+          } else if (lookupResult.status === 'not-found') {
+            const basePrompt = await getBasePrompt();
+            const { buildLookupFailedBlock } = await import("@/lib/deal-analyser-prompt");
+            systemPromptOverride = basePrompt + "\n\n" + buildLookupFailedBlock(lookupResult.addressSearched || '');
+          } else if (!systemPromptOverride) {
+            // No address detected and no Supabase persona
+            systemPromptOverride = await getBasePrompt();
+          }
+        } catch (lookupError) {
+          console.error("Address lookup failed:", lookupError);
+          if (!systemPromptOverride) {
+            systemPromptOverride = await getBasePrompt();
+          }
+        }
       }
     }
 

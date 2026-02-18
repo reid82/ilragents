@@ -45,10 +45,12 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
   // Step 1: Extract address
   const address = await extractAddressFromMessage(message);
   if (!address) {
+    console.log('[listing-lookup] No address detected in message');
     return { status: 'no-address', listing: null };
   }
 
   const addressString = formatAddressForSearch(address);
+  console.log('[listing-lookup] Address extracted:', addressString);
 
   // Step 2: Try Domain API
   try {
@@ -57,25 +59,31 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
       address.suburb,
       address.state || '',
     );
+    console.log(`[listing-lookup] Domain API returned ${results.length} results for ${address.suburb}`);
 
     // Find best match by street address
     const match = results.find(r => matchesAddress(r, address));
     if (match) {
       const listing = mapDomainSearchResultToListing(match);
+      console.log('[listing-lookup] Matched listing from Domain API:', listing.address);
       return { status: 'found', listing, source: 'domain-api', addressSearched: addressString };
     }
-  } catch {
-    // Domain API failed - fall through to REA
+    console.log('[listing-lookup] No street-level match in Domain results');
+  } catch (err) {
+    console.error('[listing-lookup] Domain API failed:', err instanceof Error ? err.message : err);
   }
 
   // Step 3: Fall back to REA
   try {
+    console.log('[listing-lookup] Trying REA fallback...');
     const reaListing = await searchReaByAddress(address);
     if (reaListing) {
+      console.log('[listing-lookup] Found listing via REA scrape:', reaListing.address);
       return { status: 'found', listing: reaListing, source: 'rea-scrape', addressSearched: addressString };
     }
-  } catch {
-    // REA also failed
+    console.log('[listing-lookup] REA returned no matching listing');
+  } catch (err) {
+    console.error('[listing-lookup] REA scrape failed:', err instanceof Error ? err.message : err);
   }
 
   // Step 4: Not found anywhere

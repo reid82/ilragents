@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import type { ParsedAddress } from './listing-types';
 
-const ADDRESS_MODEL = 'anthropic/claude-haiku-4-5-20251001';
+const ADDRESS_MODEL = 'anthropic/claude-haiku-4.5';
 
 const EXTRACTION_PROMPT = `You are an Australian address extraction tool. Given a user message, extract any Australian property address mentioned.
 
@@ -54,14 +54,19 @@ export async function extractAddressFromMessage(message: string): Promise<Parsed
       max_tokens: 200,
     });
 
-    const content = response.choices[0]?.message?.content?.trim();
+    let content = response.choices[0]?.message?.content?.trim();
+    if (!content || content === 'null') return null;
+
+    // Strip markdown code fences if the LLM wraps the JSON
+    content = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
     if (!content || content === 'null') return null;
 
     const parsed = JSON.parse(content);
     if (!parsed || !parsed.streetNumber || !parsed.streetName || !parsed.suburb) return null;
 
     return parsed as ParsedAddress;
-  } catch {
+  } catch (err) {
+    console.error('[address-extractor] Failed to extract address:', err instanceof Error ? err.message : err);
     return null;
   }
 }

@@ -41,6 +41,28 @@ export async function POST(req: NextRequest) {
       systemPromptOverride = ONBOARDING_SYSTEM_PROMPT;
     }
 
+    // Deal Analyser Dan: detect listing URLs and scrape, use custom prompt
+    if (agent === "Deal Analyser Dan") {
+      const { detectListingUrl } = await import("@ilre/pipeline/listing-types");
+      const detected = detectListingUrl(query);
+
+      if (detected) {
+        try {
+          const { scrapeListing } = await import("@ilre/pipeline/listing");
+          const listing = await scrapeListing(detected.url);
+          const { DEAL_ANALYSER_SYSTEM_PROMPT, buildListingDataBlock } = await import("@/lib/deal-analyser-prompt");
+          systemPromptOverride = DEAL_ANALYSER_SYSTEM_PROMPT + "\n\n" + buildListingDataBlock(listing);
+        } catch (scrapeError) {
+          console.error("Listing scrape failed:", scrapeError);
+          const { DEAL_ANALYSER_SYSTEM_PROMPT } = await import("@/lib/deal-analyser-prompt");
+          systemPromptOverride = DEAL_ANALYSER_SYSTEM_PROMPT;
+        }
+      } else if (!systemPromptOverride) {
+        const { DEAL_ANALYSER_SYSTEM_PROMPT } = await import("@/lib/deal-analyser-prompt");
+        systemPromptOverride = DEAL_ANALYSER_SYSTEM_PROMPT;
+      }
+    }
+
     const { chatStream } = await import("@ilre/pipeline/chat");
 
     // Look up agent-specific context limit (0 in onboarding to skip RAG)

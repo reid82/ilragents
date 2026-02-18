@@ -9,7 +9,8 @@
     "./rag/types": "./src/pipeline/rag/types.ts",
     "./types": "./src/pipeline/types.ts",
     "./listing": "./src/pipeline/extractors/listing-scraper.ts",
-    "./listing-types": "./src/pipeline/extractors/listing-types.ts"
+    "./listing-types": "./src/pipeline/extractors/listing-types.ts",
+    "./calculators": "./src/pipeline/calculators/index.ts"
   },
   "scripts": {
     "pipeline": "tsx src/pipeline/cli.ts",

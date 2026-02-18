@@ -18,6 +18,7 @@ export const AGENT_ALIASES: Record<string, string[]> = {
   'Investor Coach': ['Splitter Steve', 'Equity Eddie', 'Yield Yates', 'Tenant Tony', 'Strata Sam', 'ILR Methodology'],
   'Finance & Legal Team': ['Teflon Terry', 'Depreciation Dave', 'Venture Vince', 'ILR Methodology'],
   'Deal Analyser Dan': ['Finder Fred', 'Foundation Frank', 'Yield Yates', 'ILR Methodology'],
+  'FISO Phil': ['Foundation Frank', 'Yield Yates', 'ILR Methodology'],
 };
 
 /**

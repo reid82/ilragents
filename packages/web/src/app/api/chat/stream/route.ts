@@ -63,6 +63,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+
+    // FISO Phil: detect listing URLs and scrape, use custom prompt
+    if (agent === "FISO Phil" && !systemPromptOverride) {
+      const { detectListingUrl } = await import("@ilre/pipeline/listing-types");
+      const detected = detectListingUrl(query);
+
+      const { FISO_PHIL_SYSTEM_PROMPT } = await import("@/lib/fiso-phil-prompt");
+
+      if (detected) {
+        try {
+          const { scrapeListing } = await import("@ilre/pipeline/listing");
+          const listing = await scrapeListing(detected.url);
+          const { buildListingDataBlock } = await import("@/lib/deal-analyser-prompt");
+          systemPromptOverride = FISO_PHIL_SYSTEM_PROMPT + "\n\n" + buildListingDataBlock(listing);
+        } catch {
+          systemPromptOverride = FISO_PHIL_SYSTEM_PROMPT;
+        }
+      } else {
+        systemPromptOverride = FISO_PHIL_SYSTEM_PROMPT;
+      }
+    }
+
     const { chatStream } = await import("@ilre/pipeline/chat");
 
     // Look up agent-specific context limit (0 in onboarding to skip RAG)

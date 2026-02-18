@@ -78,6 +78,18 @@ export const AGENTS: AgentDef[] = [
     ragAgents: ["Finder Fred", "Foundation Frank", "Yield Yates", "ILR Methodology"],
     contextLimit: 25,
   },
+  {
+    id: "fiso-phil",
+    name: "FISO Phil",
+    domain: "Deal Calculator & Feasibility",
+    description:
+      "Run the numbers. Phil takes a property deal and produces a full ILR feasibility report - FISO analysis, cashflow modelling, sensitivity testing, and capacity check.",
+    color: "#EF4444",
+    avatarUrl:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=FISOPhil&backgroundColor=EF4444&skinColor=ecad80",
+    ragAgents: ["Foundation Frank", "ILR Methodology"],
+    contextLimit: 15,
+  },
 ];
 
 export function getAgentById(id: string): AgentDef | undefined {

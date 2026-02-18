@@ -164,4 +164,11 @@ describe('AGENT_ALIASES', () => {
     expect(AGENT_ALIASES['Deal Analyser Dan']).toContain('Yield Yates');
     expect(AGENT_ALIASES['Deal Analyser Dan']).toContain('ILR Methodology');
   });
+
+  it('maps FISO Phil to three agents', () => {
+    expect(AGENT_ALIASES['FISO Phil']).toHaveLength(3);
+    expect(AGENT_ALIASES['FISO Phil']).toContain('Foundation Frank');
+    expect(AGENT_ALIASES['FISO Phil']).toContain('Yield Yates');
+    expect(AGENT_ALIASES['FISO Phil']).toContain('ILR Methodology');
+  });
 });

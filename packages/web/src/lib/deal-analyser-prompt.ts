@@ -1,5 +1,7 @@
 // packages/web/src/lib/deal-analyser-prompt.ts
 
+import type { PropertyIntelligence } from '@ilre/pipeline/listing-types';
+
 /**
  * Deal Analyser Dan's custom system prompt.
  * Used as systemPromptOverride when the chat route detects Dan is the active agent.
@@ -85,4 +87,68 @@ You know the address. Proceed with your analysis using what you know:
 - If they provide details, run your full deal analysis on those numbers
 - You can still discuss the suburb, strategy options, and general assessment while waiting for specifics
 ──────────────────────────────────────────────────────────`;
+}
+
+/**
+ * Build a context block of enriched property intelligence for prompt injection.
+ * Formats suburb market data, zoning, and neighbourhood sentiment into a
+ * human-readable block that is appended to the system prompt.
+ */
+export function buildPropertyIntelligenceBlock(intel: PropertyIntelligence): string {
+  const s = intel.suburb;
+  const z = intel.zoning;
+  const sent = intel.sentiment;
+  const lines: string[] = [];
+
+  lines.push(`\n── SUBURB INTELLIGENCE: ${s.suburb.toUpperCase()}, ${s.state} ${s.postcode} ──`);
+
+  // Market data
+  const marketParts: string[] = [];
+  if (s.medianHousePrice) marketParts.push(`Median house: $${(s.medianHousePrice / 1000).toFixed(0)}K`);
+  if (s.medianUnitPrice) marketParts.push(`Units: $${(s.medianUnitPrice / 1000).toFixed(0)}K`);
+  if (s.medianWeeklyRent) marketParts.push(`Weekly rent: $${s.medianWeeklyRent}`);
+  if (marketParts.length) lines.push(marketParts.join(' | '));
+
+  const yieldParts: string[] = [];
+  if (s.grossRentalYield) yieldParts.push(`Gross yield: ${s.grossRentalYield}%`);
+  if (s.vacancyRate !== null) yieldParts.push(`Vacancy: ${s.vacancyRate}%`);
+  if (s.averageDaysOnMarket) yieldParts.push(`Avg days on market: ${s.averageDaysOnMarket}`);
+  if (yieldParts.length) lines.push(yieldParts.join(' | '));
+
+  // Demographics
+  const demoParts: string[] = [];
+  if (s.medianAge) demoParts.push(`Median age: ${s.medianAge}`);
+  if (s.medianHouseholdIncome) demoParts.push(`Median income: $${(s.medianHouseholdIncome / 1000).toFixed(0)}K`);
+  if (s.ownerOccupierPct) demoParts.push(`Owner-occupier: ${s.ownerOccupierPct}%`);
+  if (s.familyHouseholdPct) demoParts.push(`Family households: ${s.familyHouseholdPct}%`);
+  if (s.populationGrowth5yr) demoParts.push(`5yr pop growth: ${s.populationGrowth5yr}%`);
+  if (demoParts.length) lines.push(demoParts.join(' | '));
+
+  // Zoning
+  if (z) {
+    lines.push(`\nZoning: ${z.zoneCode} (${z.zoneDescription})`);
+    if (z.overlays.length) {
+      lines.push(`Overlays: ${z.overlays.join(', ')}`);
+    }
+    if (z.maxBuildingHeight) lines.push(`Max height: ${z.maxBuildingHeight}`);
+    if (z.minLotSize) lines.push(`Min lot size: ${z.minLotSize}`);
+  }
+
+  // Sentiment
+  if (sent && sent.overallRating) {
+    const posStr = sent.topPositives.length ? sent.topPositives.join(', ') : 'N/A';
+    const negStr = sent.topNegatives.length ? sent.topNegatives.join(', ') : 'N/A';
+    lines.push(`\nNeighbourhood: ${sent.overallRating}/5 (${sent.reviewCount} reviews)`);
+    lines.push(`Positives: ${posStr}`);
+    lines.push(`Negatives: ${negStr}`);
+  }
+
+  // Sources
+  const sources = [...s.dataSources];
+  if (z) sources.push(z.source);
+  if (sent) sources.push('homely');
+  lines.push(`\nSources: ${sources.join(', ')}`);
+  lines.push('──────────────────────────────────────────');
+
+  return lines.join('\n');
 }

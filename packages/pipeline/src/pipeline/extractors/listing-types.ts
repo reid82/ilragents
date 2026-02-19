@@ -95,3 +95,47 @@ export function detectListingUrl(text: string): { url: string; source: 'domain' 
 
   return null;
 }
+
+/** Property zoning data from state planning APIs */
+export interface ZoningData {
+  zoneCode: string;
+  zoneDescription: string;
+  overlays: string[];
+  overlayDescriptions: string[];
+  maxBuildingHeight: string | null;
+  minLotSize: string | null;
+  state: string;
+  source: string;
+  fetchedAt: string;
+}
+
+/** School data from myschool.edu.au */
+export interface SchoolData {
+  name: string;
+  type: 'primary' | 'secondary' | 'combined';
+  sector: 'government' | 'catholic' | 'independent';
+  icsea: number | null;
+  enrolments: number | null;
+  distanceKm: number | null;
+}
+
+/** Neighbourhood sentiment from Homely */
+export interface NeighbourhoodSentiment {
+  overallRating: number | null;
+  reviewCount: number;
+  topPositives: string[];
+  topNegatives: string[];
+  source: 'homely';
+}
+
+/** Full enriched property intelligence result */
+export interface PropertyIntelligence {
+  listing: ListingData | null;
+  suburb: SuburbContext;
+  zoning: ZoningData | null;
+  nearbySchools: SchoolData[];
+  sentiment: NeighbourhoodSentiment | null;
+  crimeRating: 'low' | 'medium' | 'high' | null;
+  fetchedAt: string;
+  errors: string[];
+}

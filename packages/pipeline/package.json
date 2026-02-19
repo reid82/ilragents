@@ -13,7 +13,8 @@
     "./calculators": "./src/pipeline/calculators/index.ts",
     "./address-extractor": "./src/pipeline/extractors/address-extractor.ts",
     "./domain-api": "./src/pipeline/extractors/domain-api.ts",
-    "./listing-lookup": "./src/pipeline/extractors/listing-lookup.ts"
+    "./listing-lookup": "./src/pipeline/extractors/listing-lookup.ts",
+    "./intelligence": "./src/pipeline/intelligence/index.ts"
   },
   "scripts": {
     "pipeline": "tsx src/pipeline/cli.ts",

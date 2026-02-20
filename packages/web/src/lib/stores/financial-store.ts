@@ -135,6 +135,7 @@ export interface InvestmentGoals {
   strategyPreference?: StrategyPreference;
   nextStepTimeline?: string;
   budgetForNextPurchase?: number;
+  targetPassiveIncome?: number;
 }
 
 export interface LocationPreferences {

@@ -8,6 +8,8 @@ import ReactMarkdown from 'react-markdown';
 import { useSessionStore } from '@/lib/stores/session-store';
 import { useClientProfileStore } from '@/lib/stores/financial-store';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { useRoadmapStore } from '@/lib/stores/roadmap-store';
+import { useRoadmapGeneration } from '@/hooks/useRoadmapGeneration';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -53,6 +55,8 @@ export default function OnboardingPage() {
   const setProfile = useClientProfileStore((s) => s.setProfile);
   const setRawTranscript = useClientProfileStore((s) => s.setRawTranscript);
   const user = useAuthStore((s) => s.user);
+  const setRoadmapStatus = useRoadmapStore((s) => s.setStatus);
+  const { startGeneration } = useRoadmapGeneration();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -67,7 +71,7 @@ export default function OnboardingPage() {
   }, [messages]);
 
   const handleOnboardingComplete = useCallback(
-    async (fullHistory: Message[]) => {
+    async (fullHistory: Message[], roadmapAccepted: boolean) => {
       setIsExtracting(true);
       try {
         const transcript = fullHistory
@@ -86,19 +90,27 @@ export default function OnboardingPage() {
           }),
         });
 
+        let extractedProfile = null;
         if (res.ok) {
-          const financialData = await res.json();
-          setProfile(financialData);
+          extractedProfile = await res.json();
+          setProfile(extractedProfile);
           setRawTranscript(transcript);
           setSessionId(sessionId);
         }
 
         clearOnboardingProgress();
         setOnboarded(true);
+
+        // If roadmap was accepted and profile was extracted, fire generation
+        if (roadmapAccepted && extractedProfile) {
+          setRoadmapStatus('generating');
+          // Start generation in background (non-blocking)
+          startGeneration(extractedProfile, sessionId, user?.id);
+        }
+
         router.push('/');
       } catch (error) {
         console.error('Failed to extract financial context:', error);
-        // Still mark as onboarded even if extraction fails
         clearOnboardingProgress();
         setOnboarded(true);
         router.push('/');
@@ -106,7 +118,7 @@ export default function OnboardingPage() {
         setIsExtracting(false);
       }
     },
-    [router, setOnboarded, setProfile, setRawTranscript, setSessionId, user]
+    [router, setOnboarded, setProfile, setRawTranscript, setSessionId, user, setRoadmapStatus, startGeneration]
   );
 
   const sendMessage = useCallback(
@@ -167,7 +179,10 @@ export default function OnboardingPage() {
               const event = JSON.parse(data);
               if (event.type === 'text') {
                 assistantText += event.text;
-                const displayText = assistantText.replace(/\n?ONBOARDING_COMPLETE\s*$/, '').trim();
+                const displayText = assistantText
+                  .replace(/\n?ROADMAP_ACCEPTED\s*/g, '')
+                  .replace(/\n?ONBOARDING_COMPLETE\s*/g, '')
+                  .trim();
                 setMessages((prev) => {
                   const updated = [...prev];
                   updated[updated.length - 1] = {
@@ -184,7 +199,10 @@ export default function OnboardingPage() {
         }
 
         // Save progress after each completed exchange
-        const cleanedText = assistantText.replace(/\n?ONBOARDING_COMPLETE\s*$/, '').trim();
+        const cleanedText = assistantText
+          .replace(/\n?ROADMAP_ACCEPTED\s*/g, '')
+          .replace(/\n?ONBOARDING_COMPLETE\s*/g, '')
+          .trim();
         const fullHistory = [
           ...updatedMessages,
           { role: 'assistant' as const, content: cleanedText },
@@ -193,7 +211,8 @@ export default function OnboardingPage() {
 
         // Check for onboarding completion signal
         if (assistantText.includes('ONBOARDING_COMPLETE')) {
-          await handleOnboardingComplete(fullHistory);
+          const roadmapAccepted = assistantText.includes('ROADMAP_ACCEPTED');
+          await handleOnboardingComplete(fullHistory, roadmapAccepted);
         }
       } catch (error) {
         setMessages((prev) => {

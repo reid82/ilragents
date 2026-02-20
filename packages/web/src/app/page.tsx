@@ -14,6 +14,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { TEST_PROFILES } from "@/lib/test-profiles";
 import ProfileModal from "@/components/ProfileModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import RoadmapCard from "@/components/RoadmapCard";
 
 function AgentCard({ agent, locked }: { agent: AgentDef; locked?: boolean }) {
   if (locked) {
@@ -323,6 +324,13 @@ export default function HomePage() {
             </div>
           </Link>
         </section>
+
+        {/* My Roadmap */}
+        {hydrated && (
+          <section className="mb-12">
+            <RoadmapCard isOnboarded={isOnboarded} />
+          </section>
+        )}
 
         {/* Advisor Grid */}
         <AdvisorGrid

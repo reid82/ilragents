@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
 import type { AgentDef } from "@/lib/agents";
 import { useClientProfileStore } from "@/lib/stores/financial-store";
 import type { AgentBriefs, ClientProfile } from "@/lib/stores/financial-store";
+import { useRoadmapStore } from "@/lib/stores/roadmap-store";
+import type { RoadmapData } from "@/lib/stores/roadmap-store";
 import { useChatStore } from "@/lib/stores/chat-store";
 import type { Message, Source } from "@/lib/stores/chat-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useRoadmapGeneration } from "@/hooks/useRoadmapGeneration";
 import { parseReferrals, SPECIALIST_TEAMS } from "@/lib/specialists";
 import type { Referral, SpecialistTeam } from "@/lib/specialists";
 import EmailDraftModal from "@/components/EmailDraftModal";
@@ -33,30 +36,73 @@ const AGENT_BRIEF_KEYS: Record<string, keyof AgentBriefs> = {
   "fiso-phil": "finderFred",
 };
 
+const ROADMAP_INSTRUCTIONS = `
+
+ROADMAP GENERATION:
+You can generate a personalised investment roadmap for the client. When they ask for one (or you think they would benefit from one), check whether you have sufficient information:
+- Essential: firstName, state, grossAnnualIncome, employmentType, ownsHome (and portfolio details if they own property), primaryGoal, timeHorizon, riskTolerance, investingExperience
+- Important for quality: cashSavings, borrowingCapacity, locationPreferences, taxRate, existingDebts
+
+If you have sufficient data:
+- Let them know you are putting their roadmap together now
+- Tell them they can safely leave this chat -- the roadmap will appear on the home page when it is ready
+- Include ROADMAP_ACCEPTED on its own line as the very last line of your response
+- Do NOT show this token to the user in your conversational text
+
+If key data is missing:
+- Tell the client what information you still need to build a quality roadmap
+- Ask for the missing pieces (1-2 questions at a time)
+- Once they have provided enough, proceed with ROADMAP_ACCEPTED as above`;
+
 function buildFinancialContext(
   profile: ClientProfile,
-  agentId: string
+  agentId: string,
+  roadmapData?: RoadmapData | null
 ): string {
   const briefKey = AGENT_BRIEF_KEYS[agentId];
   const brief = briefKey ? profile.agentBriefs[briefKey] : profile.summary;
   const { agentBriefs: _briefs, summary: _summary, ...structuredData } = profile;
-  return `${brief}\n\nCLIENT DATA:\n${JSON.stringify(structuredData, null, 2)}`;
+
+  let context = `${brief}\n\nCLIENT DATA:\n${JSON.stringify(structuredData, null, 2)}`;
+
+  // Add roadmap instructions for Ben
+  if (agentId === "baseline-ben") {
+    context += ROADMAP_INSTRUCTIONS;
+  }
+
+  if (roadmapData) {
+    context += `\n\nROADMAP SUMMARY:
+Strategy: ${roadmapData.strategyType}
+ILR Phase: ${roadmapData.recommendedPhase}
+Investor Score: ${roadmapData.investorScore}/100
+Deal Criteria: $${roadmapData.dealCriteria.priceRange.min.toLocaleString()}-$${roadmapData.dealCriteria.priceRange.max.toLocaleString()}, targeting ${roadmapData.dealCriteria.targetYield}% yield
+Target Areas: ${roadmapData.dealCriteria.locations.join(', ')}
+Property Types: ${roadmapData.dealCriteria.propertyTypes.join(', ')}
+Key Metrics: Accessible equity $${roadmapData.keyMetrics.accessibleEquity.toLocaleString()}, Borrowing capacity $${roadmapData.keyMetrics.borrowingCapacity.toLocaleString()}, Max purchase $${roadmapData.keyMetrics.maxPurchasePrice.toLocaleString()}
+Top Priorities: ${roadmapData.topPriorities.join('; ')}`;
+  }
+
+  return context;
 }
 
 interface ChatPanelProps {
   agentSlug: string;
   agent: AgentDef;
   showBackLink?: boolean;
+  initialPrompt?: string;
 }
 
 export default function ChatPanel({
   agentSlug,
   agent,
   showBackLink = false,
+  initialPrompt,
 }: ChatPanelProps) {
   const clientProfile = useClientProfileStore((s) => s.profile);
+  const roadmapData = useRoadmapStore((s) => s.reportData);
   const sessionId = useSessionStore((s) => s.sessionId);
   const authUser = useAuthStore((s) => s.user);
+  const { startGeneration } = useRoadmapGeneration();
   const messages = useChatStore((s) => s.chats[agentSlug]) ?? EMPTY_MESSAGES;
   const addMessage = useChatStore((s) => s.addMessage);
   const updateLastMessage = useChatStore((s) => s.updateLastMessage);
@@ -73,111 +119,141 @@ export default function ChatPanel({
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasAutoSubmitted = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
 
-  async function handleSend() {
-    if (!input.trim() || isLoading) return;
+  const sendMessageDirect = useCallback(
+    async (userMessage: string) => {
+      if (isLoading) return;
 
-    const userMessage = input.trim();
-    setInput("");
+      addMessage(agentSlug, { role: "user", content: userMessage });
+      setIsLoading(true);
+      setStreamingText("");
 
-    addMessage(agentSlug, { role: "user", content: userMessage });
-    setIsLoading(true);
-    setStreamingText("");
+      addMessage(agentSlug, { role: "assistant", content: "", sources: [] });
 
-    addMessage(agentSlug, { role: "assistant", content: "", sources: [] });
+      try {
+        const currentMessages = useChatStore.getState().chats[agentSlug] ?? [];
+        const history = currentMessages.slice(0, -1).map((m) => ({
+          role: m.role,
+          content: m.content.replace(/<!--REFERRAL:[\s\S]*?-->/g, "").trim(),
+        }));
 
-    try {
-      const history = messages.map((m) => ({
-        role: m.role,
-        content: m.content.replace(/<!--REFERRAL:[\s\S]*?-->/g, "").trim(),
-      }));
+        const res = await fetch("/api/chat/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: userMessage,
+            agent: agent.name,
+            history,
+            responseFormat: format,
+            financialContext: clientProfile
+              ? buildFinancialContext(clientProfile, agentSlug, roadmapData)
+              : undefined,
+          }),
+        });
 
-      const res = await fetch("/api/chat/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: userMessage,
-          agent: agent.name,
-          history,
-          responseFormat: format,
-          financialContext: clientProfile
-            ? buildFinancialContext(clientProfile, agentSlug)
-            : undefined,
-        }),
-      });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No response body");
 
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No response body");
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let assistantText = "";
+        let sources: Source[] = [];
 
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let assistantText = "";
-      let sources: Source[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+          buffer += decoder.decode(value, { stream: true });
 
-        buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6);
+            if (!data) continue;
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
-          if (!data) continue;
-
-          try {
-            const event = JSON.parse(data);
-            if (event.type === "sources") {
-              sources = event.sources;
-            } else if (event.type === "text") {
-              assistantText += event.text;
-              // Strip partial/complete referral tags from live display
-              const displayText = assistantText.replace(/<!--REFERRAL:[\s\S]*?(-->|$)/g, "").trim();
-              setStreamingText(displayText);
+            try {
+              const event = JSON.parse(data);
+              if (event.type === "sources") {
+                sources = event.sources;
+              } else if (event.type === "text") {
+                assistantText += event.text;
+                // Strip tokens and referral tags from live display
+                const displayText = assistantText
+                  .replace(/\n?ROADMAP_ACCEPTED\s*/g, "")
+                  .replace(/<!--REFERRAL:[\s\S]*?(-->|$)/g, "")
+                  .trim();
+                setStreamingText(displayText);
+              }
+            } catch {
+              // Skip malformed JSON
             }
-          } catch {
-            // Skip malformed JSON
           }
         }
+
+        // Check for ROADMAP_ACCEPTED before cleaning
+        const roadmapAccepted = assistantText.includes("ROADMAP_ACCEPTED");
+
+        // Clean content
+        const cleanedText = assistantText.replace(/\n?ROADMAP_ACCEPTED\s*/g, "");
+        const [cleanContent, referrals] = parseReferrals(cleanedText);
+
+        updateLastMessage(agentSlug, {
+          role: "assistant",
+          content: cleanContent,
+          sources,
+          referrals: referrals.length > 0 ? referrals : undefined,
+        });
+
+        // Trigger roadmap generation if Ben accepted
+        if (roadmapAccepted && agentSlug === "baseline-ben" && clientProfile && sessionId) {
+          startGeneration(clientProfile, sessionId, authUser?.id);
+        }
+      } catch (error) {
+        const isNetworkError =
+          error instanceof TypeError && error.message === "Failed to fetch";
+        const errorMessage = isNetworkError
+          ? "Network error - please check your connection and try again."
+          : error instanceof Error
+            ? error.message
+            : "Something went wrong";
+
+        updateLastMessage(agentSlug, {
+          role: "assistant",
+          content: `Error: ${errorMessage}`,
+        });
+      } finally {
+        setStreamingText(null);
+        setIsLoading(false);
+        setTimeout(() => inputRef.current?.focus(), 0);
       }
+    },
+    [isLoading, agentSlug, agent.name, format, clientProfile, roadmapData, addMessage, updateLastMessage, sessionId, authUser?.id, startGeneration]
+  );
 
-      const [cleanContent, referrals] = parseReferrals(assistantText);
-
-      updateLastMessage(agentSlug, {
-        role: "assistant",
-        content: cleanContent,
-        sources,
-        referrals: referrals.length > 0 ? referrals : undefined,
-      });
-    } catch (error) {
-      const isNetworkError =
-        error instanceof TypeError && error.message === "Failed to fetch";
-      const errorMessage = isNetworkError
-        ? "Network error - please check your connection and try again."
-        : error instanceof Error
-          ? error.message
-          : "Something went wrong";
-
-      updateLastMessage(agentSlug, {
-        role: "assistant",
-        content: `Error: ${errorMessage}`,
-      });
-    } finally {
-      setStreamingText(null);
-      setIsLoading(false);
-      setTimeout(() => inputRef.current?.focus(), 0);
+  // Auto-submit initialPrompt on mount
+  useEffect(() => {
+    if (initialPrompt && !hasAutoSubmitted.current && !isLoading) {
+      hasAutoSubmitted.current = true;
+      sendMessageDirect(initialPrompt);
     }
+  }, [initialPrompt, isLoading, sendMessageDirect]);
+
+  async function handleSend() {
+    if (!input.trim() || isLoading) return;
+    const userMessage = input.trim();
+    setInput("");
+    sendMessageDirect(userMessage);
   }
 
   function openEmailDraft(referral: Referral, team: SpecialistTeam, msg: Message) {
@@ -273,8 +349,11 @@ ${name}`;
           const rawContent = isLastAssistant
             ? (streamingText ?? msg.content)
             : msg.content;
-          // Defensive strip: catch any referral tags that slipped through
-          const displayContent = rawContent?.replace(/<!--REFERRAL:[\s\S]*?(-->|$)/g, "").trim() || rawContent;
+          // Defensive strip: catch any referral/roadmap tags that slipped through
+          const displayContent = rawContent
+            ?.replace(/<!--REFERRAL:[\s\S]*?(-->|$)/g, "")
+            .replace(/\n?ROADMAP_ACCEPTED\s*/g, "")
+            .trim() || rawContent;
 
           return (
             <div key={i} className="space-y-2">
@@ -324,7 +403,7 @@ ${name}`;
                     </div>
                   )}
 
-                  {/* Feedback button — only on completed assistant messages */}
+                  {/* Feedback button - only on completed assistant messages */}
                   {msg.role === "assistant" && !isLastAssistant && msg.content && (
                     <div className="flex justify-end mt-2">
                       <FeedbackButton
@@ -419,7 +498,7 @@ ${name}`;
           agentColor={agent.color}
           financialContext={
             clientProfile
-              ? buildFinancialContext(clientProfile, agent.id)
+              ? buildFinancialContext(clientProfile, agent.id, roadmapData)
               : undefined
           }
           onClose={() => setShowVoice(false)}

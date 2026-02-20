@@ -83,7 +83,8 @@ SCHEMA:
     "riskTolerance": "conservative"|"moderate"|"growth"|"aggressive",
     "strategyPreference": "capital-growth"|"cash-flow"|"balanced"|"value-add"|"unsure" | undefined,
     "nextStepTimeline": string | undefined,
-    "budgetForNextPurchase": number | undefined
+    "budgetForNextPurchase": number | undefined,
+    "targetPassiveIncome": number | undefined
   },
   "locationPrefs": {
     "preferredStates": string[] | undefined,

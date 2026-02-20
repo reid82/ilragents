@@ -14,6 +14,7 @@
   "dependencies": {
     "@11labs/client": "^0.2.0",
     "@11labs/react": "^0.2.0",
+    "@react-pdf/renderer": "^4.3.2",
     "@supabase/supabase-js": "^2.93.3",
     "@tailwindcss/typography": "^0.5.19",
     "dotenv": "^16.6.1",

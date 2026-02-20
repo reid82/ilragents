@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { getAgentById } from "@/lib/agents";
 import ChatPanel from "@/components/ChatPanel";
 import { use } from "react";
@@ -13,6 +14,8 @@ export default function ChatPage({
 }) {
   const { agent: agentSlug } = use(params);
   const agent = getAgentById(agentSlug);
+  const searchParams = useSearchParams();
+  const initialPrompt = searchParams.get("prompt") || undefined;
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => setHydrated(true), []);
@@ -40,7 +43,7 @@ export default function ChatPage({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <ChatPanel agentSlug={agentSlug} agent={agent} showBackLink />
+      <ChatPanel agentSlug={agentSlug} agent={agent} showBackLink initialPrompt={initialPrompt} />
     </div>
   );
 }

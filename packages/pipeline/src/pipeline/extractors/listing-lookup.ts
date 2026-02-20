@@ -11,6 +11,7 @@ export interface LookupResult {
   listing: ListingData | null;
   source?: 'domain-api' | 'rea-scrape';
   addressSearched?: string;
+  parsedAddress?: ParsedAddress;
 }
 
 /**
@@ -66,7 +67,7 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
     if (match) {
       const listing = mapDomainSearchResultToListing(match);
       console.log('[listing-lookup] Matched listing from Domain API:', listing.address);
-      return { status: 'found', listing, source: 'domain-api', addressSearched: addressString };
+      return { status: 'found', listing, source: 'domain-api', addressSearched: addressString, parsedAddress: address };
     }
     console.log('[listing-lookup] No street-level match in Domain results');
   } catch (err) {
@@ -79,7 +80,7 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
     const reaListing = await searchReaByAddress(address);
     if (reaListing) {
       console.log('[listing-lookup] Found listing via REA scrape:', reaListing.address);
-      return { status: 'found', listing: reaListing, source: 'rea-scrape', addressSearched: addressString };
+      return { status: 'found', listing: reaListing, source: 'rea-scrape', addressSearched: addressString, parsedAddress: address };
     }
     console.log('[listing-lookup] REA returned no matching listing');
   } catch (err) {
@@ -87,5 +88,5 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
   }
 
   // Step 4: Not found anywhere
-  return { status: 'not-found', listing: null, addressSearched: addressString };
+  return { status: 'not-found', listing: null, addressSearched: addressString, parsedAddress: address };
 }

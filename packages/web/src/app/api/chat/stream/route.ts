@@ -70,22 +70,6 @@ export async function POST(req: NextRequest) {
         }
       };
 
-      // Helper to extract suburb/state/postcode from a formatted address string
-      // Format from formatAddressForSearch: "[unit/]streetNumber streetName [streetType] suburb [state] [postcode]"
-      const parseAddressSearched = (addressSearched: string): { suburb: string; state: string; postcode: string } | null => {
-        const statePostcodeMatch = addressSearched.match(/\b([A-Z]{2,3})\s+(\d{4})\s*$/);
-        if (statePostcodeMatch) {
-          const state = statePostcodeMatch[1];
-          const postcode = statePostcodeMatch[2];
-          // Suburb is the word(s) before state - take the token just before
-          const beforeState = addressSearched.slice(0, statePostcodeMatch.index).trim();
-          const parts = beforeState.split(/\s+/);
-          // The suburb is typically the last token before state (may be multi-word, take last one)
-          const suburb = parts.length > 0 ? parts[parts.length - 1] : '';
-          if (suburb) return { suburb, state, postcode };
-        }
-        return null;
-      };
 
       if (detected) {
         // URL found: always scrape and use agent's custom prompt (overrides Supabase persona)
@@ -118,11 +102,11 @@ export async function POST(req: NextRequest) {
           } else if (lookupResult.status === 'not-found') {
             const basePrompt = await getBasePrompt();
             const { buildLookupFailedBlock } = await import("@/lib/deal-analyser-prompt");
-            // Try to enrich with suburb intelligence even without a listing
+            // Enrich with suburb intelligence even without a listing
             let intelligenceBlock = '';
-            const parsed = parseAddressSearched(lookupResult.addressSearched || '');
-            if (parsed) {
-              intelligenceBlock = await enrichIntelligence(parsed.suburb, parsed.state, parsed.postcode);
+            const addr = lookupResult.parsedAddress;
+            if (addr?.suburb) {
+              intelligenceBlock = await enrichIntelligence(addr.suburb, addr.state || '', addr.postcode || '', lookupResult.addressSearched);
             }
             systemPromptOverride = basePrompt + "\n\n" + buildLookupFailedBlock(lookupResult.addressSearched || '') + (intelligenceBlock ? "\n\n" + intelligenceBlock : '');
           } else if (!systemPromptOverride) {

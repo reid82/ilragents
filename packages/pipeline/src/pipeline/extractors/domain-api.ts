@@ -78,6 +78,9 @@ export class DomainApiClient {
     });
 
     if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error(`HTTP 403: Forbidden - your Domain API plan may not include access to ${path}. Check your API tier at developer.domain.com.au`);
+      }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 

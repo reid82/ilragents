@@ -5,20 +5,21 @@ const ADDRESS_MODEL = 'anthropic/claude-haiku-4.5';
 
 const EXTRACTION_PROMPT = `You are an Australian address extraction tool. Given a user message, extract any Australian property address mentioned.
 
-Return ONLY a JSON object with these fields (omit fields you can't determine):
+Return ONLY a JSON object with these fields:
 - streetNumber (required): e.g. "42"
 - streetName (required): e.g. "Smith"
 - streetType (optional): e.g. "St", "Street", "Rd", "Road", "Ave", "Cres", "Pl", "Dr", "Ct"
 - unitNumber (optional): e.g. "3" from "Unit 3/15" or "3/15"
 - suburb (required): e.g. "Richmond"
-- state (optional): e.g. "VIC", "NSW", "QLD", "SA", "WA", "TAS", "NT", "ACT"
-- postcode (optional): e.g. "3121"
+- state (required): Australian state abbreviation. If not stated, infer from the suburb name. e.g. "VIC", "NSW", "QLD", "SA", "WA", "TAS", "NT", "ACT"
+- postcode (required): Australian 4-digit postcode. If not stated, infer from the suburb name. e.g. "3121"
 
 If no Australian property address is present, return the literal text: null
 
 Examples:
 - "what do you think of 42 Smith St, Richmond VIC 3121" -> {"streetNumber":"42","streetName":"Smith","streetType":"St","suburb":"Richmond","state":"VIC","postcode":"3121"}
-- "that place at 15 Main in Heidelberg" -> {"streetNumber":"15","streetName":"Main","suburb":"Heidelberg"}
+- "that place at 15 Main in Heidelberg" -> {"streetNumber":"15","streetName":"Main","suburb":"Heidelberg","state":"VIC","postcode":"3084"}
+- "71 Bridge St Eltham" -> {"streetNumber":"71","streetName":"Bridge","streetType":"St","suburb":"Eltham","state":"VIC","postcode":"3095"}
 - "how do I calculate yield?" -> null
 
 Return ONLY the JSON object or null. No explanation.`;

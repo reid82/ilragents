@@ -36,19 +36,23 @@ describe('searchListingViaApify', () => {
   });
 
   it('returns listing from Domain search results', async () => {
+    // Domain actor output format: street, suburb, state, postcode, beds, baths, priceText, type
     mockRunActor.mockResolvedValue([
       {
         url: 'https://www.domain.com.au/71-bridge-street-eltham-vic-3095-abc123',
-        address: '71 Bridge Street, Eltham VIC 3095',
-        price: '$850,000 - $935,000',
-        bedrooms: 3,
-        bathrooms: 2,
-        parking: 2,
+        type: 'Listing',
+        street: '71 Bridge Street',
+        suburb: 'ELTHAM',
+        state: 'VIC',
+        postcode: '3095',
+        priceText: '$850,000 - $935,000',
+        beds: 3,
+        baths: 2,
         propertyType: 'House',
-        description: 'Beautiful family home',
+        propertyTypeFormatted: 'House',
         landSize: 650,
-        agent: 'John Smith',
-        agency: 'Barry Plant Eltham',
+        agentName: 'John Smith',
+        agencyName: 'Barry Plant Eltham',
       },
     ]);
 
@@ -56,9 +60,19 @@ describe('searchListingViaApify', () => {
 
     expect(result).not.toBeNull();
     expect(result!.source).toBe('domain');
-    expect(result!.suburb).toBe('Eltham');
+    expect(result!.suburb).toBe('ELTHAM');
     expect(result!.bedrooms).toBe(3);
+    expect(result!.agentName).toBe('John Smith');
     expect(mockRunActor).toHaveBeenCalledTimes(1);
+    // Verify input format: flat string array, proxy config
+    expect(mockRunActor).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        startUrls: [expect.stringContaining('domain.com.au')],
+        proxyConfiguration: expect.objectContaining({ useApifyProxy: true }),
+      }),
+      expect.any(Object),
+    );
   });
 
   it('falls back to REA when Domain returns no results', async () => {
@@ -68,13 +82,15 @@ describe('searchListingViaApify', () => {
     mockRunActor.mockResolvedValueOnce([
       {
         url: 'https://www.realestate.com.au/property-house-vic-eltham-abc123',
-        address: '71 Bridge St, Eltham VIC 3095',
-        price: '$850,000 - $935,000',
-        bedrooms: 3,
-        bathrooms: 2,
+        street: '71 Bridge St',
+        suburb: 'Eltham',
+        state: 'VIC',
+        postcode: '3095',
+        priceText: '$850,000 - $935,000',
+        beds: 3,
+        baths: 2,
         carSpaces: 2,
         propertyType: 'house',
-        description: 'Beautiful family home',
       },
     ]);
 
@@ -105,10 +121,14 @@ describe('searchListingViaApify', () => {
     mockRunActor.mockResolvedValue([
       {
         url: 'https://www.domain.com.au/10-other-street-eltham-vic-3095-xyz',
-        address: '10 Other Street, Eltham VIC 3095',
-        price: '$500,000',
-        bedrooms: 2,
-        bathrooms: 1,
+        type: 'Listing',
+        street: '10 Other Street',
+        suburb: 'ELTHAM',
+        state: 'VIC',
+        postcode: '3095',
+        priceText: '$500,000',
+        beds: 2,
+        baths: 1,
         propertyType: 'Unit',
       },
     ]);
@@ -116,6 +136,26 @@ describe('searchListingViaApify', () => {
     const result = await searchListingViaApify(testAddress);
 
     // Should not match - different street number/name
+    expect(result).toBeNull();
+  });
+
+  it('skips Project entries from Domain results', async () => {
+    mockRunActor.mockResolvedValueOnce([
+      {
+        url: 'https://www.domain.com.au/project/123/bridge-estate-eltham-vic/',
+        type: 'Project',
+        title: 'Bridge Estate 71',
+        address: '71 Bridge Street, ELTHAM VIC 3095',
+        suburb: 'ELTHAM',
+        state: 'VIC',
+        postcode: '3095',
+      },
+    ]);
+    // REA fallback also empty
+    mockRunActor.mockResolvedValueOnce([]);
+
+    const result = await searchListingViaApify(testAddress);
+
     expect(result).toBeNull();
   });
 });

@@ -12,13 +12,14 @@ function parsePrice(text: string | null | undefined): number | null {
   return parseInt(match[0].replace(/[$,]/g, ''), 10) || null;
 }
 
-/** Check if scraped result address matches the target address */
-function addressMatches(scrapedAddress: string, target: ParsedAddress): boolean {
-  const lower = scrapedAddress.toLowerCase();
+/** Check if scraped result street/address matches the target address */
+function addressMatches(raw: Record<string, unknown>, target: ParsedAddress): boolean {
+  // Domain actor uses "street" field (e.g. "71 Bridge Street")
+  const street = ((raw.street as string) || (raw.address as string) || '').toLowerCase();
   const targetNum = target.streetNumber.toLowerCase();
   const targetStreet = target.streetName.toLowerCase();
 
-  return lower.includes(targetNum) && lower.includes(targetStreet);
+  return street.includes(targetNum) && street.includes(targetStreet);
 }
 
 /** Build a Domain.com.au search URL for a suburb */
@@ -26,7 +27,7 @@ function buildDomainSearchUrl(address: ParsedAddress): string {
   const suburb = address.suburb.toLowerCase().replace(/\s+/g, '-');
   const state = (address.state || '').toLowerCase();
   const postcode = address.postcode || '';
-  return `https://www.domain.com.au/sale/${suburb}-${state}-${postcode}/`;
+  return `https://www.domain.com.au/sale/?excludeunderoffer=1&suburb=${suburb}-${state}-${postcode}`;
 }
 
 /** Build a realestate.com.au search URL for a suburb */
@@ -41,32 +42,52 @@ function buildReaSearchUrl(address: ParsedAddress): string {
   return url;
 }
 
-/** Map a Domain Apify scrape result to ListingData */
+/** Standard Apify proxy config for AU residential */
+const PROXY_CONFIG = {
+  useApifyProxy: true,
+  apifyProxyGroups: ['RESIDENTIAL'],
+  apifyProxyCountry: 'AU',
+};
+
+/**
+ * Map a Domain Apify scrape result to ListingData.
+ *
+ * Domain actor output fields (from fatihtahta/domain-com-au-scraper):
+ * url, type, priceText, street, suburb, state, postcode, beds, baths,
+ * propertyType, propertyTypeFormatted, landSize, agentName, agencyName, images
+ */
 function mapDomainResult(raw: Record<string, unknown>): ListingData {
-  const priceText = (raw.price as string) || null;
+  const priceText = (raw.priceText as string) || (raw.price as string) || null;
+  const street = (raw.street as string) || '';
+  const suburb = (raw.suburb as string) || '';
+  const state = (raw.state as string) || '';
+  const postcode = (raw.postcode as string) || '';
+
   return {
     source: 'domain',
     url: (raw.url as string) || '',
-    address: (raw.address as string) || '',
-    suburb: extractSuburb(raw.address as string),
-    state: extractState(raw.address as string),
-    postcode: extractPostcode(raw.address as string),
-    propertyType: (raw.propertyType as string) || 'unknown',
-    bedrooms: (raw.bedrooms as number) ?? null,
-    bathrooms: (raw.bathrooms as number) ?? null,
-    parking: (raw.parking as number) ?? (raw.carSpaces as number) ?? null,
+    address: street ? `${street}, ${suburb} ${state} ${postcode}`.trim() : '',
+    suburb,
+    state,
+    postcode,
+    propertyType: (raw.propertyTypeFormatted as string) || (raw.propertyType as string) || 'unknown',
+    bedrooms: (raw.beds as number) ?? null,
+    bathrooms: (raw.baths as number) ?? null,
+    parking: (raw.parking as number) ?? (raw.cars as number) ?? null,
     landSize: (raw.landSize as number) ?? null,
     buildingSize: (raw.buildingSize as number) ?? null,
     price: priceText,
     priceGuide: parsePrice(priceText),
-    listingType: priceText?.toLowerCase().includes('auction') ? 'auction' : 'sale',
-    auctionDate: (raw.auctionDate as string) || null,
-    daysOnMarket: (raw.daysOnMarket as number) ?? null,
+    listingType: priceText?.toLowerCase().includes('auction') ? 'auction'
+      : priceText?.toLowerCase().includes('expression') ? 'eoi'
+      : 'sale',
+    auctionDate: null,
+    daysOnMarket: null,
     description: (raw.description as string) || '',
-    features: Array.isArray(raw.features) ? raw.features : [],
-    images: Array.isArray(raw.images) ? raw.images : [],
-    agentName: (raw.agent as string) || null,
-    agencyName: (raw.agency as string) || null,
+    features: Array.isArray(raw.keywords) ? raw.keywords : [],
+    images: Array.isArray(raw.images) ? raw.images.slice(0, 10) : [],
+    agentName: (raw.agentName as string) || null,
+    agencyName: (raw.agencyName as string) || null,
     suburbMedianPrice: null,
     suburbMedianRent: null,
     suburbDaysOnMarket: null,
@@ -77,60 +98,41 @@ function mapDomainResult(raw: Record<string, unknown>): ListingData {
 
 /** Map a REA Apify scrape result to ListingData */
 function mapReaResult(raw: Record<string, unknown>): ListingData {
-  const priceText = (raw.price as string) || null;
+  const priceText = (raw.priceText as string) || (raw.price as string) || null;
+  const street = (raw.street as string) || (raw.address as string) || '';
+  const suburb = (raw.suburb as string) || '';
+  const state = (raw.state as string) || '';
+  const postcode = (raw.postcode as string) || '';
+
   return {
     source: 'rea',
     url: (raw.url as string) || '',
-    address: (raw.address as string) || '',
-    suburb: extractSuburb(raw.address as string),
-    state: extractState(raw.address as string),
-    postcode: extractPostcode(raw.address as string),
+    address: street ? `${street}, ${suburb} ${state} ${postcode}`.trim() : '',
+    suburb,
+    state,
+    postcode,
     propertyType: (raw.propertyType as string) || 'unknown',
-    bedrooms: (raw.bedrooms as number) ?? null,
-    bathrooms: (raw.bathrooms as number) ?? null,
-    parking: (raw.carSpaces as number) ?? (raw.parking as number) ?? null,
+    bedrooms: (raw.beds as number) ?? (raw.bedrooms as number) ?? null,
+    bathrooms: (raw.baths as number) ?? (raw.bathrooms as number) ?? null,
+    parking: (raw.cars as number) ?? (raw.carSpaces as number) ?? (raw.parking as number) ?? null,
     landSize: (raw.landSize as number) ?? null,
     buildingSize: (raw.buildingSize as number) ?? null,
     price: priceText,
     priceGuide: parsePrice(priceText),
     listingType: priceText?.toLowerCase().includes('auction') ? 'auction' : 'sale',
-    auctionDate: (raw.auctionDate as string) || null,
+    auctionDate: null,
     daysOnMarket: null,
     description: (raw.description as string) || '',
     features: Array.isArray(raw.features) ? raw.features : [],
-    images: Array.isArray(raw.images) ? raw.images : [],
-    agentName: (raw.agent as string) || null,
-    agencyName: (raw.agency as string) || null,
+    images: Array.isArray(raw.images) ? raw.images.slice(0, 10) : [],
+    agentName: (raw.agentName as string) || (raw.agent as string) || null,
+    agencyName: (raw.agencyName as string) || (raw.agency as string) || null,
     suburbMedianPrice: null,
     suburbMedianRent: null,
     suburbDaysOnMarket: null,
     suburbAuctionClearance: null,
     rawData: raw,
   };
-}
-
-/** Extract suburb from "71 Bridge St, Eltham VIC 3095" style address */
-function extractSuburb(address: string | undefined): string {
-  if (!address) return '';
-  const afterComma = address.split(',').pop()?.trim() || '';
-  const parts = afterComma.split(/\s+/);
-  if (parts.length >= 3) return parts.slice(0, -2).join(' ');
-  if (parts.length >= 2) return parts[0];
-  return '';
-}
-
-/** Extract state from address string */
-function extractState(address: string | undefined): string {
-  if (!address) return '';
-  const match = address.match(/\b(VIC|NSW|QLD|SA|WA|TAS|NT|ACT)\b/i);
-  return match ? match[1].toUpperCase() : '';
-}
-
-/** Extract postcode from address string */
-function extractPostcode(address: string | undefined): string {
-  if (!address) return '';
-  const match = address.match(/\b(\d{4})\b/);
-  return match ? match[1] : '';
 }
 
 /**
@@ -146,40 +148,49 @@ export async function searchListingViaApify(address: ParsedAddress): Promise<Lis
     const domainUrl = buildDomainSearchUrl(address);
     console.log(`[apify-listing] Searching Domain: ${domainUrl}`);
     const domainResults = await apify.runActor(DOMAIN_SEARCH_ACTOR, {
-      startUrls: [{ url: domainUrl }],
-    }, { timeoutMs: 90000 });
+      startUrls: [domainUrl],
+      limit: 100,
+      proxyConfiguration: PROXY_CONFIG,
+    }, { timeoutMs: 120000 });
 
-    if (domainResults.length > 0) {
-      const match = domainResults.find(r =>
-        addressMatches((r as Record<string, unknown>).address as string || '', address)
-      );
+    // Filter to actual listings (skip "Project" type entries)
+    const domainListings = domainResults.filter(r =>
+      (r as Record<string, unknown>).type === 'Listing'
+    );
+
+    if (domainListings.length > 0) {
+      const match = domainListings.find(r => addressMatches(r as Record<string, unknown>, address));
       if (match) {
         console.log('[apify-listing] Found match on Domain');
         return mapDomainResult(match as Record<string, unknown>);
       }
-      console.log(`[apify-listing] Domain returned ${domainResults.length} results but none matched address`);
+      console.log(`[apify-listing] Domain returned ${domainListings.length} listings but none matched address`);
     } else {
-      console.log('[apify-listing] Domain returned no results');
+      console.log(`[apify-listing] Domain returned ${domainResults.length} results (0 listings)`);
     }
 
-    // Fall back to REA
-    const reaUrl = buildReaSearchUrl(address);
-    console.log(`[apify-listing] Searching REA: ${reaUrl}`);
-    const reaResults = await apify.runActor(REA_SEARCH_ACTOR, {
-      startUrls: [{ url: reaUrl }],
-    }, { timeoutMs: 90000 });
+    // Fall back to REA (only if actor is accessible)
+    try {
+      const reaUrl = buildReaSearchUrl(address);
+      console.log(`[apify-listing] Searching REA: ${reaUrl}`);
+      const reaResults = await apify.runActor(REA_SEARCH_ACTOR, {
+        startUrls: [reaUrl],
+        limit: 100,
+        proxyConfiguration: PROXY_CONFIG,
+      }, { timeoutMs: 120000 });
 
-    if (reaResults.length > 0) {
-      const match = reaResults.find(r =>
-        addressMatches((r as Record<string, unknown>).address as string || '', address)
-      );
-      if (match) {
-        console.log('[apify-listing] Found match on REA');
-        return mapReaResult(match as Record<string, unknown>);
+      if (reaResults.length > 0) {
+        const match = reaResults.find(r => addressMatches(r as Record<string, unknown>, address));
+        if (match) {
+          console.log('[apify-listing] Found match on REA');
+          return mapReaResult(match as Record<string, unknown>);
+        }
+        console.log(`[apify-listing] REA returned ${reaResults.length} results but none matched address`);
+      } else {
+        console.log('[apify-listing] REA returned no results');
       }
-      console.log(`[apify-listing] REA returned ${reaResults.length} results but none matched address`);
-    } else {
-      console.log('[apify-listing] REA returned no results');
+    } catch (reaErr) {
+      console.error('[apify-listing] REA search failed:', reaErr instanceof Error ? reaErr.message : reaErr);
     }
 
     return null;

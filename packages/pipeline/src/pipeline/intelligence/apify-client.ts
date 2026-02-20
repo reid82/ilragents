@@ -17,8 +17,11 @@ export class ApifyClient {
     const pollInterval = opts?.pollIntervalMs ?? 2000;
     const timeout = opts?.timeoutMs ?? 60000;
 
+    // Apify API requires username~actorname format (slash becomes tilde)
+    const encodedActorId = actorId.replace('/', '~');
+
     // Start the run
-    const startRes = await fetch(`${APIFY_BASE}/acts/${actorId}/runs`, {
+    const startRes = await fetch(`${APIFY_BASE}/acts/${encodedActorId}/runs`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.token}`,
@@ -29,7 +32,8 @@ export class ApifyClient {
     });
 
     if (!startRes.ok) {
-      console.error(`[apify] Failed to start actor ${actorId}: ${startRes.status}`);
+      const body = await startRes.text().catch(() => '');
+      console.error(`[apify] Failed to start actor ${actorId}: ${startRes.status} ${body}`);
       return [];
     }
 

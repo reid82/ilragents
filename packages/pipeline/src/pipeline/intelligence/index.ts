@@ -7,3 +7,4 @@ export type { AbsDemographics } from './abs-demographics';
 export { getZoningData } from './zoning-lookup';
 export { getVacancyRate } from './vacancy-scraper';
 export { getNeighbourhoodSentiment } from './sentiment-scraper';
+export { searchListingViaApify } from './apify-listing-lookup';

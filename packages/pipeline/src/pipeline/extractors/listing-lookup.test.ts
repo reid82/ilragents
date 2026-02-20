@@ -1,46 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Shared mock for the search method - allows per-test override
-const mockSearchResidentialListings = vi.fn().mockResolvedValue([]);
+const mockSearchApify = vi.fn();
 
-// Mock dependencies
 vi.mock('./address-extractor', () => ({
   extractAddressFromMessage: vi.fn(),
 }));
 
-vi.mock('./domain-api', () => {
-  return {
-    DomainApiClient: class MockDomainApiClient {
-      searchResidentialListings = mockSearchResidentialListings;
-    },
-  };
-});
-
-vi.mock('./domain-mapper', () => ({
-  mapDomainSearchResultToListing: vi.fn(),
+vi.mock('../intelligence/apify-listing-lookup', () => ({
+  searchListingViaApify: (...args: unknown[]) => mockSearchApify(...args),
 }));
 
-vi.mock('./listing-scraper', () => ({
-  searchReaByAddress: vi.fn().mockResolvedValue(null),
-}));
-
-import { lookupListingByAddress, type LookupResult } from './listing-lookup';
+import { lookupListingByAddress } from './listing-lookup';
 import { extractAddressFromMessage } from './address-extractor';
-import { mapDomainSearchResultToListing } from './domain-mapper';
-import { searchReaByAddress } from './listing-scraper';
 
 const mockExtract = vi.mocked(extractAddressFromMessage);
-const mockSearchRea = vi.mocked(searchReaByAddress);
-const mockMapDomain = vi.mocked(mapDomainSearchResultToListing);
 
 describe('lookupListingByAddress', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('DOMAIN_API_CLIENT_ID', 'test-id');
-    vi.stubEnv('DOMAIN_API_CLIENT_SECRET', 'test-secret');
     vi.stubEnv('OPENROUTER_API_KEY', 'test-key');
-    // Reset shared mock defaults
-    mockSearchResidentialListings.mockResolvedValue([]);
+    vi.stubEnv('APIFY_API_TOKEN', 'test-token');
+    mockSearchApify.mockResolvedValue(null);
   });
 
   it('returns no-address when no address detected', async () => {
@@ -52,72 +32,54 @@ describe('lookupListingByAddress', () => {
     expect(result.listing).toBeNull();
   });
 
-  it('returns listing from Domain API when found', async () => {
-    const addr = { streetNumber: '42', streetName: 'Smith', streetType: 'St', suburb: 'Richmond', state: 'VIC', postcode: '3121' };
+  it('returns listing when Apify finds a Domain match', async () => {
+    const addr = { streetNumber: '71', streetName: 'Bridge', streetType: 'St', suburb: 'Eltham', state: 'VIC', postcode: '3095' };
     mockExtract.mockResolvedValue(addr);
 
-    const fakeListing = { source: 'domain' as const, address: '42 Smith St', suburb: 'Richmond' } as any;
-    const fakeSearchResult = {
-      type: 'PropertyListing',
-      listing: {
-        id: 123,
-        listingType: 'Sale',
-        propertyDetails: { displayableAddress: '42 Smith St, Richmond VIC 3121', streetNumber: '42', street: 'Smith St', suburb: 'Richmond', state: 'VIC', postcode: '3121' },
-      },
-    };
+    const fakeListing = { source: 'domain' as const, address: '71 Bridge St, Eltham VIC 3095', suburb: 'Eltham' } as any;
+    mockSearchApify.mockResolvedValue(fakeListing);
 
-    mockSearchResidentialListings.mockResolvedValue([fakeSearchResult]);
-    mockMapDomain.mockReturnValue(fakeListing);
-
-    const result = await lookupListingByAddress('What about 42 Smith St Richmond VIC 3121');
+    const result = await lookupListingByAddress('What about 71 Bridge St Eltham');
 
     expect(result.status).toBe('found');
     expect(result.listing).toBe(fakeListing);
-    expect(result.source).toBe('domain-api');
+    expect(result.source).toBe('apify-domain');
+    expect(result.parsedAddress).toEqual(addr);
   });
 
-  it('falls back to REA when Domain returns no match', async () => {
-    const addr = { streetNumber: '42', streetName: 'Smith', suburb: 'Richmond' };
+  it('returns listing when Apify finds a REA match', async () => {
+    const addr = { streetNumber: '71', streetName: 'Bridge', suburb: 'Eltham' };
     mockExtract.mockResolvedValue(addr);
 
-    mockSearchResidentialListings.mockResolvedValue([]);
+    const fakeListing = { source: 'rea' as const, address: '71 Bridge St' } as any;
+    mockSearchApify.mockResolvedValue(fakeListing);
 
-    const reaListing = { source: 'rea' as const, address: '42 Smith St' } as any;
-    mockSearchRea.mockResolvedValue(reaListing);
-
-    const result = await lookupListingByAddress('42 Smith St Richmond');
+    const result = await lookupListingByAddress('71 Bridge St Eltham');
 
     expect(result.status).toBe('found');
-    expect(result.listing).toBe(reaListing);
-    expect(result.source).toBe('rea-scrape');
+    expect(result.source).toBe('apify-rea');
   });
 
-  it('returns not-found when neither Domain nor REA has listing', async () => {
-    const addr = { streetNumber: '42', streetName: 'Smith', suburb: 'Richmond' };
+  it('returns not-found when Apify returns null', async () => {
+    const addr = { streetNumber: '71', streetName: 'Bridge', suburb: 'Eltham' };
     mockExtract.mockResolvedValue(addr);
+    mockSearchApify.mockResolvedValue(null);
 
-    mockSearchResidentialListings.mockResolvedValue([]);
-    mockSearchRea.mockResolvedValue(null);
-
-    const result = await lookupListingByAddress('42 Smith St Richmond');
+    const result = await lookupListingByAddress('71 Bridge St Eltham');
 
     expect(result.status).toBe('not-found');
     expect(result.listing).toBeNull();
     expect(result.addressSearched).toBeDefined();
   });
 
-  it('falls back to REA when Domain API throws', async () => {
-    const addr = { streetNumber: '42', streetName: 'Smith', suburb: 'Richmond' };
+  it('returns not-found when Apify throws', async () => {
+    const addr = { streetNumber: '71', streetName: 'Bridge', suburb: 'Eltham' };
     mockExtract.mockResolvedValue(addr);
+    mockSearchApify.mockRejectedValue(new Error('Apify down'));
 
-    mockSearchResidentialListings.mockRejectedValue(new Error('API down'));
+    const result = await lookupListingByAddress('71 Bridge St Eltham');
 
-    const reaListing = { source: 'rea' as const, address: '42 Smith St' } as any;
-    mockSearchRea.mockResolvedValue(reaListing);
-
-    const result = await lookupListingByAddress('42 Smith St Richmond');
-
-    expect(result.status).toBe('found');
-    expect(result.source).toBe('rea-scrape');
+    expect(result.status).toBe('not-found');
+    expect(result.listing).toBeNull();
   });
 });

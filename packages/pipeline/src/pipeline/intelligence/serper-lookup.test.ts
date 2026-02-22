@@ -71,13 +71,58 @@ describe('findListingUrlViaSerper', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('returns null when neither site has a listing', async () => {
+  it('returns null when no site has a listing', async () => {
     mockFetch.mockResolvedValue(serpApiResponse([]));
 
     const result = await findListingUrlViaSerper(testAddress);
 
     expect(result).toBeNull();
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('searches domain, then rea, then onthehouse in order', async () => {
+    mockFetch.mockResolvedValue(serpApiResponse([]));
+
+    await findListingUrlViaSerper(testAddress);
+
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    const urls = mockFetch.mock.calls.map((c: unknown[]) => c[0] as string);
+    expect(urls[0]).toContain('domain.com.au');
+    expect(urls[1]).toContain('realestate.com.au');
+    expect(urls[2]).toContain('onthehouse.com.au');
+  });
+
+  it('returns onthehouse result when domain and rea miss', async () => {
+    mockFetch.mockResolvedValueOnce(serpApiResponse([]));
+    mockFetch.mockResolvedValueOnce(serpApiResponse([]));
+    mockFetch.mockResolvedValueOnce(serpApiResponse([
+      {
+        title: '44 Red Rocks Road, Cowes VIC 3922 - OnTheHouse',
+        link: 'https://www.onthehouse.com.au/property/vic/cowes-3922/44-red-rocks-rd-cowes-vic-3922-4937422',
+        snippet: '3 bedroom house. Estimated value $650,000 - $700,000.',
+      },
+    ]));
+
+    const result = await findListingUrlViaSerper(testAddress);
+
+    expect(result).not.toBeNull();
+    expect(result!.source).toBe('onthehouse');
+    expect(result!.url).toContain('onthehouse.com.au/property/');
+  });
+
+  it('stops at domain when domain has a match', async () => {
+    mockFetch.mockResolvedValueOnce(serpApiResponse([
+      {
+        title: '44 Red Rocks Road, Cowes VIC 3922',
+        link: 'https://www.domain.com.au/44-red-rocks-road-cowes-vic-3922-2019540812',
+        snippet: '3 bed house',
+      },
+    ]));
+
+    const result = await findListingUrlViaSerper(testAddress);
+
+    expect(result!.source).toBe('domain');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('skips non-listing Domain URLs (search pages, suburb profiles)', async () => {
@@ -86,6 +131,7 @@ describe('findListingUrlViaSerper', () => {
       { title: 'Suburb profile', link: 'https://www.domain.com.au/suburb-profile/cowes-vic-3922' },
       { title: 'News article', link: 'https://www.domain.com.au/news/some-article' },
     ]));
+    mockFetch.mockResolvedValueOnce(serpApiResponse([]));
     mockFetch.mockResolvedValueOnce(serpApiResponse([]));
 
     const result = await findListingUrlViaSerper(testAddress);
@@ -110,6 +156,7 @@ describe('findListingUrlViaSerper', () => {
   });
 
   it('returns null when API returns error status', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 429, statusText: 'Too Many Requests' });
     mockFetch.mockResolvedValueOnce({ ok: false, status: 429, statusText: 'Too Many Requests' });
     mockFetch.mockResolvedValueOnce({ ok: false, status: 429, statusText: 'Too Many Requests' });
 

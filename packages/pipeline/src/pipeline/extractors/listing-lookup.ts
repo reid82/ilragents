@@ -3,6 +3,7 @@ import { formatAddressForSearch, LISTING_DETAIL_DEFAULTS } from './listing-types
 import { extractAddressFromMessage } from './address-extractor';
 import { enrichListingDetail } from '../intelligence/apify-listing-detail';
 import type { SerperLookupResult } from '../intelligence/serper-lookup';
+import type { PageExtractor } from '../intelligence/bright-data-scraper';
 
 export interface LookupResult {
   status: 'found' | 'not-found' | 'no-address';
@@ -130,6 +131,67 @@ function serperSourceToLookupSource(source: 'domain' | 'rea' | 'onthehouse' | nu
   return 'serper-rea';
 }
 
+/** Get the appropriate Playwright page extractor for a source */
+async function getExtractorForSource(source: 'domain' | 'rea' | 'onthehouse'): Promise<PageExtractor> {
+  if (source === 'onthehouse') {
+    const { extractOnthehousePage } = await import('../intelligence/onthehouse-extractor');
+    return extractOnthehousePage;
+  }
+  const { extractGenericPage } = await import('../intelligence/bright-data-scraper');
+  return extractGenericPage;
+}
+
+/** Get the appropriate merge function for a source */
+async function getMergerForSource(source: 'domain' | 'rea' | 'onthehouse'): Promise<(listing: ListingData, raw: Record<string, unknown>) => ListingData> {
+  if (source === 'onthehouse') {
+    const { mergeOnthehouseDetail } = await import('../intelligence/onthehouse-extractor');
+    return mergeOnthehouseDetail;
+  }
+  if (source === 'domain') {
+    const { mergeDomainDetail } = await import('../intelligence/apify-listing-detail');
+    return mergeDomainDetail;
+  }
+  const { mergeReaDetail } = await import('../intelligence/apify-listing-detail');
+  return mergeReaDetail;
+}
+
+/** Try scraping a URL via Bright Data, then Cheerio, returning the listing or null */
+async function tryScrape(
+  url: string,
+  serperResult: SerperLookupResult,
+  address: ParsedAddress,
+): Promise<ListingData | null> {
+  const source = serperResult.source;
+
+  // Step A: Try Bright Data Scraping Browser (if configured)
+  try {
+    const { scrapeWithBrightData } = await import('../intelligence/bright-data-scraper');
+    const extractor = await getExtractorForSource(source);
+    const raw = await scrapeWithBrightData(url, extractor);
+
+    if (raw) {
+      const listing = buildListingFromSnippet(serperResult, address);
+      const merger = await getMergerForSource(source);
+      return merger(listing, raw);
+    }
+  } catch (err) {
+    console.log(`[listing-lookup] Bright Data scrape failed: ${err instanceof Error ? err.message : 'unknown'}`);
+  }
+
+  // Step B: Try Cheerio scrape (fast, may be blocked, doesn't work for OTH)
+  if (source !== 'onthehouse') {
+    try {
+      const { scrapeListing } = await import('./listing-scraper');
+      console.log(`[listing-lookup] Cheerio scraping: ${url}`);
+      return await scrapeListing(url);
+    } catch (scrapeErr) {
+      console.log(`[listing-lookup] Cheerio scrape failed: ${scrapeErr instanceof Error ? scrapeErr.message : 'unknown'}`);
+    }
+  }
+
+  return null;
+}
+
 /** Check if a Domain API search result's address matches the target */
 function domainApiAddressMatches(
   result: { listing?: { propertyDetails?: { streetNumber?: string; street?: string; displayableAddress?: string } } },
@@ -156,7 +218,7 @@ function domainApiAddressMatches(
  * Flow:
  * 1. Extract address from message via LLM
  * 2. Primary: SerpAPI Google search -> find listing URL + snippet data (~1-2s)
- * 3. Try Cheerio scrape of the URL (~1s), if blocked -> use snippet data (instant)
+ * 3. Try scraping: Bright Data (~5s) -> Cheerio (~1s, skip for OTH) -> snippet fallback
  * 4. Fallback: Domain API search (if configured)
  */
 export async function lookupListingByAddress(message: string): Promise<LookupResult> {
@@ -182,21 +244,20 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
       foundUrl = serperResult.url;
       foundSource = serperResult.source;
 
-      // Step 3a: Try Cheerio scrape first (fast, ~1s, but may be blocked)
-      try {
-        const { scrapeListing } = await import('./listing-scraper');
-        console.log(`[listing-lookup] Scraping listing: ${foundUrl}`);
-        let listing = await scrapeListing(foundUrl);
-        listing = await tryEnrich(listing);
-        const source = serperSourceToLookupSource(foundSource);
-        return { status: 'found', listing, source, addressSearched: addressString, parsedAddress: address };
-      } catch (scrapeErr) {
-        // Step 3b: Cheerio blocked -> extract what we can from the SerpAPI snippet (instant, free)
-        console.log(`[listing-lookup] Cheerio scrape failed (${scrapeErr instanceof Error ? scrapeErr.message : 'unknown'}), using SerpAPI snippet data`);
-        const listing = buildListingFromSnippet(serperResult, address);
+      // Step 3: Try scraping (Bright Data -> Cheerio -> snippet fallback)
+      const scrapedListing = await tryScrape(foundUrl, serperResult, address);
+
+      if (scrapedListing) {
+        const listing = await tryEnrich(scrapedListing);
         const source = serperSourceToLookupSource(foundSource);
         return { status: 'found', listing, source, addressSearched: addressString, parsedAddress: address };
       }
+
+      // All scraping failed -> use snippet data
+      console.log(`[listing-lookup] All scraping failed, using SerpAPI snippet data`);
+      const listing = buildListingFromSnippet(serperResult, address);
+      const source = serperSourceToLookupSource(foundSource);
+      return { status: 'found', listing, source, addressSearched: addressString, parsedAddress: address };
     }
   } catch (err) {
     console.error('[listing-lookup] Serper lookup failed:', err instanceof Error ? err.message : err);

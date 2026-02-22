@@ -137,14 +137,6 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <div className="mt-8 text-center">
-          <a
-            href="/"
-            className="text-xs text-zinc-500 hover:text-zinc-400 transition-colors"
-          >
-            &larr; Back to home
-          </a>
-        </div>
       </div>
     </div>
   );

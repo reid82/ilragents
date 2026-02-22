@@ -29,7 +29,8 @@
     "dotenv": "^16.4.5",
     "gray-matter": "^4.0.3",
     "openai": "^4.28.0",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "playwright-core": "^1.58.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

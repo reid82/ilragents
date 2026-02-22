@@ -42,33 +42,50 @@ interface SerpApiResponse {
 /**
  * Search Google via SerpAPI for a property listing URL.
  *
- * Tries Domain first, then REA, then OnTheHouse. Returns the first
- * matching listing URL. Returns null if no listing found or if
- * SERPER_API_KEY is not configured.
+ * Searches all three sites (Domain, REA, OnTheHouse) and returns all
+ * matching results sorted by richness: REA > Domain > OnTheHouse.
+ * Returns empty array if no listings found or SERPER_API_KEY not configured.
  */
-export async function findListingUrlViaSerper(address: ParsedAddress): Promise<SerperLookupResult | null> {
+export async function findAllListingUrls(address: ParsedAddress): Promise<SerperLookupResult[]> {
   const apiKey = process.env.SERPER_API_KEY;
   if (!apiKey) {
     console.log('[serpapi] SERPER_API_KEY not configured, skipping');
-    return null;
+    return [];
   }
 
   const addressStr = formatAddressForSearch(address);
 
-  // Try Domain first
-  const domainResult = await searchSite('domain.com.au', addressStr, apiKey);
-  if (domainResult) return domainResult;
+  // Search all three sites in parallel
+  const [domainResult, reaResult, othResult] = await Promise.all([
+    searchSite('domain.com.au', addressStr, apiKey),
+    searchSite('realestate.com.au', addressStr, apiKey),
+    searchSite('onthehouse.com.au', addressStr, apiKey),
+  ]);
 
-  // Fall back to REA
-  const reaResult = await searchSite('realestate.com.au', addressStr, apiKey);
-  if (reaResult) return reaResult;
+  // Collect results, ordered by richness: REA > Domain > OTH
+  const results: SerperLookupResult[] = [];
+  if (reaResult) results.push(reaResult);
+  if (domainResult) results.push(domainResult);
+  if (othResult) results.push(othResult);
 
-  // Fall back to OnTheHouse
-  const othResult = await searchSite('onthehouse.com.au', addressStr, apiKey);
-  if (othResult) return othResult;
+  if (results.length === 0) {
+    console.log('[serpapi] No listing found on Domain, REA, or OnTheHouse');
+  } else {
+    console.log(`[serpapi] Found ${results.length} source(s): ${results.map(r => r.source).join(', ')}`);
+  }
 
-  console.log('[serpapi] No listing found on Domain, REA, or OnTheHouse');
-  return null;
+  return results;
+}
+
+/**
+ * Search Google via SerpAPI for a property listing URL.
+ *
+ * Legacy single-result API. Returns the best (first) result from findAllListingUrls.
+ * Returns null if no listing found or if SERPER_API_KEY is not configured.
+ */
+export async function findListingUrlViaSerper(address: ParsedAddress): Promise<SerperLookupResult | null> {
+  const results = await findAllListingUrls(address);
+  return results[0] || null;
 }
 
 async function searchSite(

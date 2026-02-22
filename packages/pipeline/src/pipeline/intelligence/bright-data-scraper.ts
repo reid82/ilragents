@@ -46,12 +46,9 @@ export async function scrapeWithBrightData(
     const page = await browser.newPage();
 
     await page.goto(url, {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'networkidle',
       timeout: SCRAPE_TIMEOUT_MS,
     });
-
-    // Give JS time to hydrate (React/Redux apps need this)
-    await page.waitForSelector('body', { timeout: 5000 }).catch(() => {});
 
     const data = await extractor(page);
     await page.close();

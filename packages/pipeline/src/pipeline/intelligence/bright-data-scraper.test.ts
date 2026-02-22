@@ -49,7 +49,7 @@ describe('scrapeWithBrightData', () => {
     expect(result).toEqual(extractedData);
     expect(mockGoto).toHaveBeenCalledWith(
       'https://www.onthehouse.com.au/property/vic/cowes-3922/test',
-      expect.objectContaining({ waitUntil: 'domcontentloaded' }),
+      expect.objectContaining({ waitUntil: 'networkidle' }),
     );
     expect(extractor).toHaveBeenCalled();
   });

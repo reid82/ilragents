@@ -1,5 +1,5 @@
 export interface ListingData {
-  source: 'domain' | 'rea';
+  source: 'domain' | 'rea' | 'onthehouse';
   url: string;
   // Property
   address: string;
@@ -43,7 +43,7 @@ export interface ListingData {
   fullFeatures: Record<string, string[]>;
   // Enrichment metadata
   enrichedAt: string | null;
-  enrichmentSource: 'apify-detail' | 'cheerio' | null;
+  enrichmentSource: 'apify-detail' | 'cheerio' | 'serp-snippet' | 'bright-data' | null;
   // Raw
   rawData: Record<string, unknown>;
 }
@@ -141,12 +141,15 @@ export const LISTING_DETAIL_DEFAULTS: Pick<ListingData,
 };
 
 /** Detect whether a string is a supported listing URL */
-export function detectListingUrl(text: string): { url: string; source: 'domain' | 'rea' } | null {
+export function detectListingUrl(text: string): { url: string; source: 'domain' | 'rea' | 'onthehouse' } | null {
   const domainMatch = text.match(/(https?:\/\/(?:www\.)?domain\.com\.au\/[^\s]+)/i);
   if (domainMatch) return { url: domainMatch[1], source: 'domain' };
 
   const reaMatch = text.match(/(https?:\/\/(?:www\.)?realestate\.com\.au\/[^\s]+)/i);
   if (reaMatch) return { url: reaMatch[1], source: 'rea' };
+
+  const othMatch = text.match(/(https?:\/\/(?:www\.)?onthehouse\.com\.au\/[^\s]+)/i);
+  if (othMatch) return { url: othMatch[1], source: 'onthehouse' };
 
   return null;
 }

@@ -12,6 +12,7 @@ async function fetchHtml(url: string): Promise<string> {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-AU,en;q=0.9',
     },
+    signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText} for ${url}`);

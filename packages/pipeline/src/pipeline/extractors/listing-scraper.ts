@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { ListingData, ParsedAddress } from './listing-types';
+import { LISTING_DETAIL_DEFAULTS } from './listing-types';
 
 /**
  * Fetch HTML from a URL with browser-like headers
@@ -82,6 +83,7 @@ export function parseDomainListing(html: string, url: string): ListingData {
     suburbMedianRent: listing.suburbInsights?.medianRentPrice ?? null,
     suburbDaysOnMarket: listing.suburbInsights?.avgDaysOnMarket ?? null,
     suburbAuctionClearance: listing.suburbInsights?.auctionClearanceRate ?? null,
+    ...LISTING_DETAIL_DEFAULTS,
     rawData: listing,
   };
 }
@@ -145,6 +147,7 @@ export function parseReaListing(html: string, url: string): ListingData {
     suburbMedianRent: null,
     suburbDaysOnMarket: null,
     suburbAuctionClearance: null,
+    ...LISTING_DETAIL_DEFAULTS,
     rawData: argonautData,
   };
 }

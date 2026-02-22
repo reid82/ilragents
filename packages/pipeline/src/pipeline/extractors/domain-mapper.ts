@@ -1,4 +1,5 @@
 import type { ListingData } from './listing-types';
+import { LISTING_DETAIL_DEFAULTS } from './listing-types';
 import type { DomainSearchResult } from './domain-api';
 
 /** Parse a numeric price from display text like "$750,000 - $800,000" */
@@ -54,6 +55,7 @@ export function mapDomainSearchResultToListing(result: DomainSearchResult): List
     suburbMedianRent: null,
     suburbDaysOnMarket: null,
     suburbAuctionClearance: null,
+    ...LISTING_DETAIL_DEFAULTS,
     rawData: result as unknown as Record<string, unknown>,
   };
 }

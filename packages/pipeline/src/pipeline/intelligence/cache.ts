@@ -8,6 +8,7 @@ const TTL_DAYS: Record<string, number> = {
   'sentiment': 14,
   'vacancy': 7,
   'crime': 90,
+  'listing-detail': 1,
 };
 
 const TABLE = 'property_intelligence_cache';
@@ -39,6 +40,37 @@ export class IntelligenceCache {
 
   async set(source: string, suburb: string, state: string, value: unknown): Promise<void> {
     const key = `${source}:${suburb.toLowerCase()}:${state.toLowerCase()}`;
+    const now = new Date();
+    const ttlDays = TTL_DAYS[source] ?? 7;
+    const expiresAt = new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000);
+
+    await this.client.from(TABLE).upsert({
+      cache_key: key,
+      data: value,
+      fetched_at: now.toISOString(),
+      expires_at: expiresAt.toISOString(),
+    });
+  }
+
+  /** Get cached data by URL (for listing detail caching) */
+  async getByUrl(source: string, url: string): Promise<unknown | null> {
+    const key = `${source}:${url}`;
+    try {
+      const { data } = await this.client
+        .from(TABLE)
+        .select('data')
+        .eq('cache_key', key)
+        .gt('expires_at', new Date().toISOString())
+        .single();
+      return data?.data ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Set cached data by URL (for listing detail caching) */
+  async setByUrl(source: string, url: string, value: unknown): Promise<void> {
+    const key = `${source}:${url}`;
     const now = new Date();
     const ttlDays = TTL_DAYS[source] ?? 7;
     const expiresAt = new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000);

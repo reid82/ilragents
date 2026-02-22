@@ -76,7 +76,16 @@ export async function POST(req: NextRequest) {
         const basePrompt = await getBasePrompt();
         try {
           const { scrapeListing } = await import("@ilre/pipeline/listing");
-          const listing = await scrapeListing(detected.url);
+          let listing = await scrapeListing(detected.url);
+
+          // Enrich with full page detail via Apify (non-fatal)
+          try {
+            const { enrichListingDetail } = await import("@ilre/pipeline/intelligence");
+            listing = await enrichListingDetail(listing);
+          } catch (enrichErr) {
+            console.error("Listing detail enrichment failed (non-fatal):", enrichErr);
+          }
+
           const { buildListingDataBlock } = await import("@/lib/deal-analyser-prompt");
           const intelligenceBlock = await enrichIntelligence(
             listing.suburb || '', listing.state || '', listing.postcode || '', listing.address || ''

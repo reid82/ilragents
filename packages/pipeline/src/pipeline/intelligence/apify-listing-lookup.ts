@@ -1,5 +1,6 @@
 import { ApifyClient } from './apify-client';
 import type { ListingData, ParsedAddress } from '../extractors/listing-types';
+import { LISTING_DETAIL_DEFAULTS } from '../extractors/listing-types';
 
 const DOMAIN_SEARCH_ACTOR = process.env.APIFY_DOMAIN_SEARCH_ACTOR || 'fatihtahta/domain-com-au-scraper';
 const REA_SEARCH_ACTOR = process.env.APIFY_REA_SEARCH_ACTOR || 'azzouzana/realestate-com-au-search-pages-scraper';
@@ -92,6 +93,7 @@ function mapDomainResult(raw: Record<string, unknown>): ListingData {
     suburbMedianRent: null,
     suburbDaysOnMarket: null,
     suburbAuctionClearance: null,
+    ...LISTING_DETAIL_DEFAULTS,
     rawData: raw,
   };
 }
@@ -131,6 +133,7 @@ function mapReaResult(raw: Record<string, unknown>): ListingData {
     suburbMedianRent: null,
     suburbDaysOnMarket: null,
     suburbAuctionClearance: null,
+    ...LISTING_DETAIL_DEFAULTS,
     rawData: raw,
   };
 }

@@ -30,8 +30,42 @@ export interface ListingData {
   suburbMedianRent: number | null;
   suburbDaysOnMarket: number | null;
   suburbAuctionClearance: number | null;
+  // Extended detail fields (populated by individual page scraping)
+  floorPlanUrl: string | null;
+  inspectionTimes: string[];
+  statementOfInformationUrl: string | null;
+  propertyHistory: PropertyHistoryEntry[];
+  nearbySoldComparables: ComparableProperty[];
+  energyRating: number | null;
+  councilRates: number | null;
+  bodyCorpFees: number | null;
+  virtualTourUrl: string | null;
+  fullFeatures: Record<string, string[]>;
+  // Enrichment metadata
+  enrichedAt: string | null;
+  enrichmentSource: 'apify-detail' | 'cheerio' | null;
   // Raw
   rawData: Record<string, unknown>;
+}
+
+/** A historical sale/listing event for a property */
+export interface PropertyHistoryEntry {
+  date: string;
+  event: 'sold' | 'listed' | 'withdrawn' | 'rental' | 'other';
+  price: number | null;
+  source: string;
+}
+
+/** A recently sold comparable property nearby */
+export interface ComparableProperty {
+  address: string;
+  soldDate: string | null;
+  soldPrice: number | null;
+  propertyType: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  landSize: number | null;
+  distanceKm: number | null;
 }
 
 export interface SuburbContext {
@@ -84,6 +118,27 @@ export function formatAddressForSearch(addr: ParsedAddress): string {
   if (addr.postcode) parts.push(addr.postcode);
   return parts.join(' ').replace('/ ', '/');
 }
+
+/** Default values for extended listing detail fields */
+export const LISTING_DETAIL_DEFAULTS: Pick<ListingData,
+  'floorPlanUrl' | 'inspectionTimes' | 'statementOfInformationUrl' |
+  'propertyHistory' | 'nearbySoldComparables' | 'energyRating' |
+  'councilRates' | 'bodyCorpFees' | 'virtualTourUrl' | 'fullFeatures' |
+  'enrichedAt' | 'enrichmentSource'
+> = {
+  floorPlanUrl: null,
+  inspectionTimes: [],
+  statementOfInformationUrl: null,
+  propertyHistory: [],
+  nearbySoldComparables: [],
+  energyRating: null,
+  councilRates: null,
+  bodyCorpFees: null,
+  virtualTourUrl: null,
+  fullFeatures: {},
+  enrichedAt: null,
+  enrichmentSource: null,
+};
 
 /** Detect whether a string is a supported listing URL */
 export function detectListingUrl(text: string): { url: string; source: 'domain' | 'rea' } | null {

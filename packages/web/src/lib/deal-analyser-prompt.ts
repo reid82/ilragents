@@ -1,6 +1,6 @@
 // packages/web/src/lib/deal-analyser-prompt.ts
 
-import type { PropertyIntelligence } from '@ilre/pipeline/listing-types';
+import type { ListingData, PropertyIntelligence } from '@ilre/pipeline/listing-types';
 
 /**
  * Deal Analyser Dan's custom system prompt.
@@ -56,13 +56,111 @@ Include when relevant. Format: <!--REFERRAL:{"team":"finance"|"accounting"|"asse
 Do NOT mention referrals in your conversational text - the system renders them automatically.`;
 
 /**
- * Format listing data as a context block for injection into the system prompt
+ * Format listing data as a structured context block for injection into the system prompt.
+ * Presents key data in a scannable format rather than raw JSON.
  */
 export function buildListingDataBlock(listing: unknown): string {
-  return `
-── PROPERTY LISTING DATA ─────────────────────────────────
-${JSON.stringify(listing, null, 2)}
-──────────────────────────────────────────────────────────`;
+  const l = listing as ListingData;
+  const lines: string[] = [];
+
+  lines.push('\n── PROPERTY LISTING DATA ─────────────────────────────────');
+
+  // Core details
+  if (l.address) lines.push(`Address: ${l.address}`);
+  if (l.url) lines.push(`Listing URL: ${l.url}`);
+  if (l.source) lines.push(`Source: ${l.source === 'domain' ? 'Domain.com.au' : 'realestate.com.au'}`);
+  if (l.propertyType && l.propertyType !== 'unknown') lines.push(`Type: ${l.propertyType}`);
+
+  // Price
+  if (l.price) lines.push(`Price: ${l.price}`);
+  if (l.priceGuide) lines.push(`Price Guide: $${l.priceGuide.toLocaleString()}`);
+  if (l.listingType && l.listingType !== 'unknown') lines.push(`Listing Method: ${l.listingType}`);
+  if (l.auctionDate) lines.push(`Auction Date: ${l.auctionDate}`);
+  if (l.daysOnMarket !== null && l.daysOnMarket !== undefined) lines.push(`Days on Market: ${l.daysOnMarket}`);
+
+  // Features
+  const featureParts: string[] = [];
+  if (l.bedrooms !== null) featureParts.push(`${l.bedrooms} bed`);
+  if (l.bathrooms !== null) featureParts.push(`${l.bathrooms} bath`);
+  if (l.parking !== null) featureParts.push(`${l.parking} car`);
+  if (featureParts.length) lines.push(`Features: ${featureParts.join(' / ')}`);
+  if (l.landSize) lines.push(`Land Size: ${l.landSize}sqm`);
+  if (l.buildingSize) lines.push(`Building Size: ${l.buildingSize}sqm`);
+
+  // Agent
+  if (l.agentName || l.agencyName) {
+    const agentStr = [l.agentName, l.agencyName].filter(Boolean).join(' - ');
+    lines.push(`Agent: ${agentStr}`);
+  }
+
+  // Description
+  if (l.description) {
+    lines.push(`\nDescription:\n${l.description}`);
+  }
+
+  // Feature list
+  if (l.features?.length) {
+    lines.push(`\nFeatures: ${l.features.join(', ')}`);
+  }
+
+  // Categorised features (from detail enrichment)
+  if (l.fullFeatures && Object.keys(l.fullFeatures).length > 0) {
+    lines.push('\nDetailed Features:');
+    for (const [category, items] of Object.entries(l.fullFeatures)) {
+      if (items.length) lines.push(`  ${category}: ${items.join(', ')}`);
+    }
+  }
+
+  // Extended detail fields (from Apify detail actor enrichment)
+  if (l.floorPlanUrl) lines.push(`\nFloor Plan: ${l.floorPlanUrl}`);
+  if (l.virtualTourUrl) lines.push(`Virtual Tour: ${l.virtualTourUrl}`);
+  if (l.statementOfInformationUrl) lines.push(`Statement of Information: ${l.statementOfInformationUrl}`);
+
+  if (l.inspectionTimes?.length) {
+    lines.push(`\nInspection Times: ${l.inspectionTimes.join('; ')}`);
+  }
+
+  if (l.energyRating !== null && l.energyRating !== undefined) lines.push(`Energy Rating: ${l.energyRating} stars`);
+  if (l.councilRates !== null && l.councilRates !== undefined) lines.push(`Council Rates: $${l.councilRates.toLocaleString()}/year`);
+  if (l.bodyCorpFees !== null && l.bodyCorpFees !== undefined) lines.push(`Body Corp/Strata: $${l.bodyCorpFees.toLocaleString()}/quarter`);
+
+  // Property history
+  if (l.propertyHistory?.length) {
+    lines.push('\nProperty History:');
+    for (const entry of l.propertyHistory) {
+      const priceStr = entry.price ? `$${entry.price.toLocaleString()}` : 'N/A';
+      lines.push(`  ${entry.date} - ${entry.event} ${priceStr}`);
+    }
+  }
+
+  // Nearby comparable sales
+  if (l.nearbySoldComparables?.length) {
+    lines.push('\nNearby Comparable Sales:');
+    for (const comp of l.nearbySoldComparables) {
+      const parts: string[] = [];
+      if (comp.bedrooms !== null) parts.push(`${comp.bedrooms}bed`);
+      if (comp.bathrooms !== null) parts.push(`${comp.bathrooms}bath`);
+      if (comp.landSize !== null) parts.push(`${comp.landSize}sqm`);
+      const priceStr = comp.soldPrice ? `$${comp.soldPrice.toLocaleString()}` : 'N/A';
+      const dateStr = comp.soldDate || 'N/A';
+      lines.push(`  ${comp.address} (${parts.join('/')}) - Sold ${priceStr} (${dateStr})`);
+    }
+  }
+
+  // Suburb data embedded in listing
+  const suburbParts: string[] = [];
+  if (l.suburbMedianPrice) suburbParts.push(`Median: $${(l.suburbMedianPrice / 1000).toFixed(0)}K`);
+  if (l.suburbMedianRent) suburbParts.push(`Rent: $${l.suburbMedianRent}/wk`);
+  if (l.suburbDaysOnMarket) suburbParts.push(`DOM: ${l.suburbDaysOnMarket}`);
+  if (l.suburbAuctionClearance) suburbParts.push(`Clearance: ${l.suburbAuctionClearance}%`);
+  if (suburbParts.length) {
+    lines.push(`\nSuburb Snapshot: ${suburbParts.join(' | ')}`);
+  }
+
+  if (l.enrichedAt) lines.push(`\nEnriched: ${l.enrichedAt}`);
+
+  lines.push('──────────────────────────────────────────────────────────');
+  return lines.join('\n');
 }
 
 /** Build a context block for when address lookup was attempted but no listing found */

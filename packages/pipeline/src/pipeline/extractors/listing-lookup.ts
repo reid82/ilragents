@@ -16,6 +16,8 @@ export interface LookupResult {
   parsedAddress?: ParsedAddress;
 }
 
+export type ProgressCallback = (message: string) => void;
+
 /** Enrich a listing with detail actor data (non-fatal) */
 async function tryEnrich(listing: ListingData): Promise<ListingData> {
   if (!listing.url || listing.description.length > 200) return listing;
@@ -240,8 +242,14 @@ function domainApiAddressMatches(
  *    If the first source is thin (<3 rich fields), try the next source
  * 4. Fallback: Domain API search (if configured)
  */
-export async function lookupListingByAddress(message: string): Promise<LookupResult> {
+export async function lookupListingByAddress(
+  message: string,
+  onProgress?: ProgressCallback,
+): Promise<LookupResult> {
+  const progress = onProgress || (() => {});
+
   // Step 1: Extract address
+  progress('Extracting address...');
   const address = await extractAddressFromMessage(message);
   if (!address) {
     console.log('[listing-lookup] No address detected in message');
@@ -253,6 +261,7 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
 
   // Step 2: SerpAPI Google search - all sites in parallel
   try {
+    progress(`Searching for ${addressString}...`);
     const { findAllListingUrls } = await import('../intelligence/serper-lookup');
     const allResults = await findAllListingUrls(address);
 
@@ -261,8 +270,16 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
     let bestSource: LookupResult['source'] | undefined;
     let bestRichness = -1;
 
+    const sourceLabels: Record<string, string> = {
+      rea: 'realestate.com.au',
+      domain: 'domain.com.au',
+      onthehouse: 'onthehouse.com.au',
+    };
+
     for (const serperResult of allResults) {
       const source = serperSourceToLookupSource(serperResult.source);
+      const label = sourceLabels[serperResult.source] || serperResult.source;
+      progress(`Checking ${label}...`);
 
       // Try scraping this source
       const scrapedListing = await tryScrape(serperResult.url, serperResult, address);
@@ -273,6 +290,7 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
 
         if (richness >= MIN_RICH_FIELDS) {
           // Good enough - enrich and return
+          progress('Enriching property data...');
           const listing = await tryEnrich(scrapedListing);
           return { status: 'found', listing, source, addressSearched: addressString, parsedAddress: address };
         }
@@ -300,6 +318,7 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
     // Return the best listing we found across all sources
     if (bestListing) {
       console.log(`[listing-lookup] Using best result (${bestSource}, ${bestRichness} rich fields)`);
+      progress('Enriching property data...');
       const listing = await tryEnrich(bestListing);
       return { status: 'found', listing, source: bestSource, addressSearched: addressString, parsedAddress: address };
     }
@@ -311,6 +330,7 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
   const hasDomainApi = !!(process.env.DOMAIN_API_CLIENT_ID && process.env.DOMAIN_API_CLIENT_SECRET);
   if (hasDomainApi && address.suburb) {
     try {
+      progress('Checking Domain API...');
       const { DomainApiClient } = await import('./domain-api');
       const { mapDomainSearchResultToListing } = await import('./domain-mapper');
       const domain = new DomainApiClient();
@@ -322,6 +342,7 @@ export async function lookupListingByAddress(message: string): Promise<LookupRes
         const match = results.find(r => domainApiAddressMatches(r, address));
         if (match) {
           console.log('[listing-lookup] Found match via Domain API:', match.listing?.propertyDetails?.displayableAddress);
+          progress('Enriching property data...');
           let listing = mapDomainSearchResultToListing(match);
           listing = await tryEnrich(listing);
           return { status: 'found', listing, source: 'domain-api', addressSearched: addressString, parsedAddress: address };

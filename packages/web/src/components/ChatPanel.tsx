@@ -108,6 +108,7 @@ export default function ChatPanel({
   const updateLastMessage = useChatStore((s) => s.updateLastMessage);
   const clearChat = useChatStore((s) => s.clearChat);
   const [streamingText, setStreamingText] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [format, setFormat] = useState<ResponseFormat>("standard");
@@ -184,9 +185,13 @@ export default function ChatPanel({
 
             try {
               const event = JSON.parse(data);
-              if (event.type === "sources") {
+              if (event.type === "status") {
+                setStatusMessage(event.message || null);
+              } else if (event.type === "sources") {
+                setStatusMessage(null);
                 sources = event.sources;
               } else if (event.type === "text") {
+                setStatusMessage(null);
                 assistantText += event.text;
                 // Strip tokens and referral tags from live display
                 const displayText = assistantText
@@ -234,6 +239,7 @@ export default function ChatPanel({
         });
       } finally {
         setStreamingText(null);
+        setStatusMessage(null);
         setIsLoading(false);
         setTimeout(() => inputRef.current?.focus(), 0);
       }
@@ -347,7 +353,7 @@ ${name}`;
             msg.role === "assistant" &&
             i === messages.length - 1;
           const rawContent = isLastAssistant
-            ? (streamingText ?? msg.content)
+            ? (streamingText || statusMessage || msg.content)
             : msg.content;
           // Defensive strip: catch any referral/roadmap tags that slipped through
           const displayContent = rawContent
@@ -370,8 +376,12 @@ ${name}`;
                 >
                   {msg.role === "assistant" ? (
                     <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
-                      {displayContent ? (
+                      {displayContent && !(isLastAssistant && !streamingText && statusMessage) ? (
                         <ReactMarkdown>{displayContent}</ReactMarkdown>
+                      ) : isLastAssistant && statusMessage ? (
+                        <span className="text-zinc-400 italic animate-pulse">
+                          {statusMessage}
+                        </span>
                       ) : (
                         <span className="text-zinc-400 animate-pulse">
                           Thinking...

@@ -127,7 +127,7 @@ export async function extractOnthehousePage(page: Page): Promise<Record<string, 
     const data: Record<string, unknown> = {};
 
     // Try Redux store first
-    const reduxData = (window as Record<string, unknown>).REDUX_DATA as Record<string, unknown> | undefined;
+    const reduxData = (window as unknown as Record<string, unknown>).REDUX_DATA as Record<string, unknown> | undefined;
     if (reduxData) {
       return reduxData;
     }

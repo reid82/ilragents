@@ -206,10 +206,13 @@ export async function enrichListingDetail(listing: ListingData): Promise<Listing
     const actor = listing.source === 'domain' ? DOMAIN_DETAIL_ACTOR : REA_DETAIL_ACTOR;
 
     console.log(`[listing-detail] Enriching via ${actor}: ${listing.url}`);
-    const results = await apify.runActor(actor, {
-      startUrls: [listing.url],
-      proxyConfiguration: PROXY_CONFIG,
-    }, { timeoutMs: DETAIL_TIMEOUT_MS });
+
+    // Domain and REA actors use different input field names
+    const input = listing.source === 'domain'
+      ? { urls: [listing.url], proxy: PROXY_CONFIG }
+      : { startUrls: [listing.url], proxyConfiguration: PROXY_CONFIG };
+
+    const results = await apify.runActor(actor, input, { timeoutMs: DETAIL_TIMEOUT_MS });
 
     if (results.length === 0) {
       console.log('[listing-detail] Actor returned no results');

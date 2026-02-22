@@ -32,6 +32,10 @@ export async function scrapeWithBrightData(
     console.log('[bright-data] BRIGHT_DATA_BROWSER_WS not configured, skipping');
     return null;
   }
+  if (!wsEndpoint.startsWith('wss://') && !wsEndpoint.startsWith('ws://')) {
+    console.error('[bright-data] BRIGHT_DATA_BROWSER_WS must be a wss:// URL, got:', wsEndpoint.substring(0, 20) + '...');
+    return null;
+  }
 
   let browser;
   try {

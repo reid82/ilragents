@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRoadmapStore } from '@/lib/stores/roadmap-store';
 import type { RoadmapData } from '@/lib/stores/roadmap-store';
 import { useSessionStore } from '@/lib/stores/session-store';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 interface RoadmapCardProps {
   isOnboarded: boolean;
@@ -18,7 +20,45 @@ export default function RoadmapCard({ isOnboarded }: RoadmapCardProps) {
   const { status, sectionsCompleted, totalSections, currentSectionLabel, reportData } =
     useRoadmapStore();
   const sessionId = useSessionStore((s) => s.sessionId);
+  const user = useAuthStore((s) => s.user);
   const syncRef = useRef(false);
+  const hydrateRef = useRef(false);
+
+  // On mount: if store says idle but user is logged in, check server for existing roadmap
+  useEffect(() => {
+    if (status !== 'idle' || !user || !isOnboarded || hydrateRef.current) return;
+    hydrateRef.current = true;
+
+    (async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const session = (await supabase?.auth.getSession())?.data.session;
+        if (!session?.access_token) return;
+
+        const res = await fetch('/api/roadmap/mine', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        if (data.status === 'completed' && data.roadmapId) {
+          useRoadmapStore.getState().setCompleted(
+            data.reportMarkdown,
+            data.reportData as RoadmapData,
+            data.roadmapId
+          );
+        } else if (data.status === 'generating' && data.roadmapId) {
+          // Resume polling state
+          useRoadmapStore.getState().setRoadmapId(data.roadmapId);
+          useRoadmapStore.getState().setStatus('generating');
+          useRoadmapStore.getState().setProgress(data.sectionsCompleted || 0);
+        }
+      } catch {
+        // Non-fatal - user will just see the default idle state
+      }
+    })();
+  }, [status, user, isOnboarded]);
 
   // Sync with server when store says "generating" - detect stale/failed state
   useEffect(() => {
@@ -112,11 +152,12 @@ export default function RoadmapCard({ isOnboarded }: RoadmapCardProps) {
 
   // Ready state - roadmap exists
   if (status === 'completed') {
+    const refinePrompt = encodeURIComponent(
+      "I'd like to discuss and refine my investment roadmap."
+    );
+
     return (
-      <Link
-        href="/roadmap"
-        className="group block rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-5 transition-all hover:border-amber-500/50 hover:from-amber-500/15 hover:to-amber-500/10"
-      >
+      <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
@@ -129,19 +170,34 @@ export default function RoadmapCard({ isOnboarded }: RoadmapCardProps) {
               <p className="text-xs text-amber-300/80">Your personalised investment roadmap is ready</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {reportData && (
-              <div className="hidden sm:flex items-center gap-4 text-xs text-zinc-400">
-                <span>Score: <span className="text-amber-400 font-medium">{reportData.investorScore}/100</span></span>
-                <span>Strategy: <span className="text-amber-400 font-medium capitalize">{reportData.strategyType}</span></span>
-              </div>
-            )}
-            <span className="text-amber-400 text-sm font-medium group-hover:translate-x-1 transition-transform">
-              View &rarr;
-            </span>
-          </div>
+          {reportData && (
+            <div className="hidden sm:flex items-center gap-4 text-xs text-zinc-400">
+              <span>Score: <span className="text-amber-400 font-medium">{reportData.investorScore}/100</span></span>
+              <span>Strategy: <span className="text-amber-400 font-medium capitalize">{reportData.strategyType}</span></span>
+            </div>
+          )}
         </div>
-      </Link>
+        <div className="flex items-center gap-3 mt-4">
+          <Link
+            href="/roadmap"
+            className="flex items-center gap-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            View Roadmap
+          </Link>
+          <Link
+            href={`/chat/baseline-ben?prompt=${refinePrompt}`}
+            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            Discuss &amp; Refine
+          </Link>
+        </div>
+      </div>
     );
   }
 

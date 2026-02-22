@@ -15,6 +15,38 @@ async function loadProfileFromDB(accessToken: string) {
   return data.profile ?? null;
 }
 
+/** Wait for Zustand persist stores to finish hydrating from localStorage */
+function waitForHydration(): Promise<void> {
+  return new Promise((resolve) => {
+    // Check if already hydrated
+    if (
+      useSessionStore.persist.hasHydrated() &&
+      useClientProfileStore.persist.hasHydrated()
+    ) {
+      resolve();
+      return;
+    }
+    // Wait for both stores to hydrate
+    let sessionReady = useSessionStore.persist.hasHydrated();
+    let profileReady = useClientProfileStore.persist.hasHydrated();
+    const check = () => {
+      if (sessionReady && profileReady) resolve();
+    };
+    if (!sessionReady) {
+      useSessionStore.persist.onFinishHydration(() => {
+        sessionReady = true;
+        check();
+      });
+    }
+    if (!profileReady) {
+      useClientProfileStore.persist.onFinishHydration(() => {
+        profileReady = true;
+        check();
+      });
+    }
+  });
+}
+
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const setLoading = useAuthStore((s) => s.setLoading);
@@ -27,33 +59,37 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const supabase = getSupabaseBrowserClient();
 
     if (!supabase) {
-      // Auth not configured — skip silently
+      // Auth not configured -- skip silently
       setLoading(false);
       return;
     }
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const user = session?.user ?? null;
-      setUser(user);
+    // Wait for persist stores to hydrate from localStorage before loading
+    // from DB, otherwise the DB values get overwritten by stale localStorage
+    waitForHydration().then(() => {
+      // Get initial session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const user = session?.user ?? null;
+        setUser(user);
 
-      if (user && session?.access_token) {
-        // Hydrate stores from DB for returning users
-        setSessionId(user.id);
-        loadProfileFromDB(session.access_token).then((profile) => {
-          if (profile) {
-            setProfile(profile.structured_data);
-            if (profile.raw_transcript) {
-              setRawTranscript(profile.raw_transcript);
+        if (user && session?.access_token) {
+          // Hydrate stores from DB for returning users
+          setSessionId(user.id);
+          loadProfileFromDB(session.access_token).then((profile) => {
+            if (profile) {
+              setProfile(profile.structured_data);
+              if (profile.raw_transcript) {
+                setRawTranscript(profile.raw_transcript);
+              }
+              useClientProfileStore.getState().clearSavedProfile();
+              setOnboarded(true);
             }
-            useClientProfileStore.getState().clearSavedProfile();
-            setOnboarded(true);
-          }
+            setLoading(false);
+          });
+        } else {
           setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
+        }
+      });
     });
 
     // Listen for auth changes (login, logout, token refresh)

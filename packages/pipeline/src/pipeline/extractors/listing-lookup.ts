@@ -233,6 +233,70 @@ function domainApiAddressMatches(
 }
 
 /**
+ * Scrape a listing directly from a known URL (no SERP search needed).
+ *
+ * Tries Bright Data first, then Cheerio fallback. Enriches via Apify if possible.
+ * Use this when the user provides a direct listing URL instead of an address.
+ */
+export async function scrapeListingByUrl(
+  url: string,
+  source: 'domain' | 'rea' | 'onthehouse',
+  onProgress?: ProgressCallback,
+): Promise<ListingData> {
+  const progress = onProgress || (() => {});
+
+  // Step 1: Try Bright Data scraping (handles anti-bot, JS rendering, OnTheHouse)
+  try {
+    progress('Researching that property online...');
+    const { scrapeWithBrightData } = await import('../intelligence/bright-data-scraper');
+    const extractor = await getExtractorForSource(source);
+    const raw = await scrapeWithBrightData(url, extractor);
+
+    if (raw && Object.keys(raw).length > 0) {
+      // Build a minimal listing shell, then merge scraped data
+      const merger = await getMergerForSource(source);
+      const shell: ListingData = {
+        source, url, address: '', suburb: '', state: '', postcode: '',
+        propertyType: 'unknown', bedrooms: null, bathrooms: null, parking: null,
+        landSize: null, buildingSize: null, price: null, priceGuide: null,
+        listingType: 'unknown', auctionDate: null, daysOnMarket: null,
+        description: '', features: [], images: [],
+        agentName: null, agencyName: null,
+        suburbMedianPrice: null, suburbMedianRent: null,
+        suburbDaysOnMarket: null, suburbAuctionClearance: null,
+        ...LISTING_DETAIL_DEFAULTS, rawData: {},
+      };
+      const listing = merger(shell, raw);
+      const richness = countRichFields(listing);
+      console.log(`[listing-lookup] Bright Data URL scrape: ${richness} rich fields`);
+
+      if (richness >= MIN_RICH_FIELDS) {
+        progress('Enriching property data...');
+        return await tryEnrich(listing);
+      }
+    }
+  } catch (err) {
+    console.log(`[listing-lookup] Bright Data URL scrape failed: ${err instanceof Error ? err.message : 'unknown'}`);
+  }
+
+  // Step 2: Cheerio fallback (Domain/REA only - OTH needs JS rendering)
+  if (source !== 'onthehouse') {
+    try {
+      progress('Fetching listing details...');
+      const { scrapeListing } = await import('./listing-scraper');
+      console.log(`[listing-lookup] Cheerio scraping URL: ${url}`);
+      const listing = await scrapeListing(url);
+      progress('Enriching property data...');
+      return await tryEnrich(listing);
+    } catch (scrapeErr) {
+      console.log(`[listing-lookup] Cheerio URL scrape failed: ${scrapeErr instanceof Error ? scrapeErr.message : 'unknown'}`);
+    }
+  }
+
+  throw new Error(`Failed to scrape listing from ${url}`);
+}
+
+/**
  * Look up a property listing from a user message containing an address.
  *
  * Flow:

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useSessionStore } from '@/lib/stores/session-store';
 import { useClientProfileStore } from '@/lib/stores/financial-store';
 import { useAuthStore } from '@/lib/stores/auth-store';
@@ -289,7 +290,7 @@ export default function OnboardingPage() {
               {msg.role === 'assistant' ? (
                 <div className="prose prose-sm prose-invert max-w-none">
                   {msg.content ? (
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                   ) : (
                     <span className="text-zinc-400 animate-pulse">
                       Thinking...

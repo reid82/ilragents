@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { AgentDef } from "@/lib/agents";
 import { useClientProfileStore } from "@/lib/stores/financial-store";
 import type { AgentBriefs, ClientProfile } from "@/lib/stores/financial-store";
@@ -375,9 +376,9 @@ ${name}`;
                   }`}
                 >
                   {msg.role === "assistant" ? (
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-table:border-collapse prose-th:border prose-th:border-zinc-700 prose-th:bg-zinc-800 prose-th:px-3 prose-th:py-1.5 prose-td:border prose-td:border-zinc-700 prose-td:px-3 prose-td:py-1.5">
                       {displayContent && !(isLastAssistant && !streamingText && statusMessage) ? (
-                        <ReactMarkdown>{displayContent}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
                       ) : isLastAssistant && statusMessage ? (
                         <span className="text-zinc-400 italic animate-pulse">
                           {statusMessage}

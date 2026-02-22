@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import { useRoadmapStore } from '@/lib/stores/roadmap-store';
+import type { RoadmapData } from '@/lib/stores/roadmap-store';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 interface SectionNav {
   id: string;
@@ -32,20 +35,57 @@ function extractSections(markdown: string): SectionNav[] {
 export default function RoadmapPage() {
   const router = useRouter();
   const { status, roadmapId, reportMarkdown, reportData } = useRoadmapStore();
+  const user = useAuthStore((s) => s.user);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(true);
+  const hydrateRef = useRef(false);
 
   const sections = useMemo(
     () => (reportMarkdown ? extractSections(reportMarkdown) : []),
     [reportMarkdown]
   );
 
-  // Redirect if no roadmap
+  // If store is empty, try to hydrate from server before redirecting
   useEffect(() => {
-    if (status !== 'completed' || !reportMarkdown) {
-      router.push('/');
+    if (status === 'completed' && reportMarkdown) {
+      setIsHydrating(false);
+      return;
     }
-  }, [status, reportMarkdown, router]);
+    if (hydrateRef.current) return;
+    hydrateRef.current = true;
+
+    (async () => {
+      try {
+        if (user) {
+          const supabase = getSupabaseBrowserClient();
+          const session = (await supabase?.auth.getSession())?.data.session;
+          if (session?.access_token) {
+            const res = await fetch('/api/roadmap/mine', {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.status === 'completed' && data.roadmapId) {
+                useRoadmapStore.getState().setCompleted(
+                  data.reportMarkdown,
+                  data.reportData as RoadmapData,
+                  data.roadmapId
+                );
+                setIsHydrating(false);
+                return;
+              }
+            }
+          }
+        }
+      } catch {
+        // Fall through to redirect
+      }
+      // No roadmap found on server either - redirect home
+      setIsHydrating(false);
+      router.push('/');
+    })();
+  }, [status, reportMarkdown, user, router]);
 
   // Track active section on scroll
   useEffect(() => {
@@ -92,7 +132,7 @@ export default function RoadmapPage() {
     }
   }
 
-  if (status !== 'completed' || !reportMarkdown) {
+  if (isHydrating || status !== 'completed' || !reportMarkdown) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
         <p className="text-zinc-400">Loading...</p>

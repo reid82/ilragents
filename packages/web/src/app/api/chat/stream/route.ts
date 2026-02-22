@@ -87,21 +87,13 @@ export async function POST(req: NextRequest) {
 
 
         if (detected) {
-          // URL found: always scrape and use agent's custom prompt (overrides Supabase persona)
+          // URL found: scrape via Bright Data -> Cheerio fallback, then enrich
           const basePrompt = await getBasePrompt();
           try {
-            sendEvent({ type: "status", message: "Scraping listing page..." });
-            const { scrapeListing } = await import("@ilre/pipeline/listing");
-            let listing = await scrapeListing(detected.url);
-
-            // Enrich with full page detail via Apify (non-fatal)
-            try {
-              sendEvent({ type: "status", message: "Enriching listing details..." });
-              const { enrichListingDetail } = await import("@ilre/pipeline/intelligence");
-              listing = await enrichListingDetail(listing);
-            } catch (enrichErr) {
-              console.error("Listing detail enrichment failed (non-fatal):", enrichErr);
-            }
+            const { scrapeListingByUrl } = await import("@ilre/pipeline/listing-lookup");
+            const listing = await scrapeListingByUrl(detected.url, detected.source, (status: string) => {
+              sendEvent({ type: "status", message: status });
+            });
 
             const { buildListingDataBlock } = await import("@/lib/deal-analyser-prompt");
             const intelligenceBlock = await enrichIntelligence(

@@ -15,18 +15,18 @@ const testAddress: ParsedAddress = {
   postcode: '3922',
 };
 
-function serperResponse(organic: Array<{ title: string; link: string; snippet?: string }>) {
+function serpApiResponse(organic_results: Array<{ title: string; link: string; snippet?: string }>) {
   return {
     ok: true,
     status: 200,
-    json: () => Promise.resolve({ organic }),
+    json: () => Promise.resolve({ organic_results, search_metadata: { status: 'Success' } }),
   };
 }
 
 describe('findListingUrlViaSerper', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('SERPER_API_KEY', 'test-serper-key');
+    vi.stubEnv('SERPER_API_KEY', 'test-serpapi-key');
   });
 
   it('returns null when SERPER_API_KEY is not set', async () => {
@@ -37,7 +37,7 @@ describe('findListingUrlViaSerper', () => {
   });
 
   it('finds a Domain listing URL', async () => {
-    mockFetch.mockResolvedValueOnce(serperResponse([
+    mockFetch.mockResolvedValueOnce(serpApiResponse([
       {
         title: '44 Red Rocks Road, Cowes VIC 3922 - Domain',
         link: 'https://www.domain.com.au/44-red-rocks-road-cowes-vic-3922-2019540812',
@@ -49,16 +49,14 @@ describe('findListingUrlViaSerper', () => {
     expect(result).not.toBeNull();
     expect(result!.source).toBe('domain');
     expect(result!.url).toBe('https://www.domain.com.au/44-red-rocks-road-cowes-vic-3922-2019540812');
-    expect(mockFetch).toHaveBeenCalledTimes(1); // Only Domain search needed
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to REA when Domain has no listing', async () => {
-    // Domain: no listing URLs in results
-    mockFetch.mockResolvedValueOnce(serperResponse([
+    mockFetch.mockResolvedValueOnce(serpApiResponse([
       { title: 'Cowes property prices', link: 'https://www.domain.com.au/suburb-profile/cowes-vic-3922' },
     ]));
-    // REA: found a listing
-    mockFetch.mockResolvedValueOnce(serperResponse([
+    mockFetch.mockResolvedValueOnce(serpApiResponse([
       {
         title: '44 Red Rocks Road, Cowes - realestate.com.au',
         link: 'https://www.realestate.com.au/property-house-vic-cowes-143160680',
@@ -74,7 +72,7 @@ describe('findListingUrlViaSerper', () => {
   });
 
   it('returns null when neither site has a listing', async () => {
-    mockFetch.mockResolvedValue(serperResponse([]));
+    mockFetch.mockResolvedValue(serpApiResponse([]));
 
     const result = await findListingUrlViaSerper(testAddress);
 
@@ -83,33 +81,32 @@ describe('findListingUrlViaSerper', () => {
   });
 
   it('skips non-listing Domain URLs (search pages, suburb profiles)', async () => {
-    mockFetch.mockResolvedValueOnce(serperResponse([
+    mockFetch.mockResolvedValueOnce(serpApiResponse([
       { title: 'Search results', link: 'https://www.domain.com.au/sale/cowes-vic-3922/' },
       { title: 'Suburb profile', link: 'https://www.domain.com.au/suburb-profile/cowes-vic-3922' },
       { title: 'News article', link: 'https://www.domain.com.au/news/some-article' },
     ]));
-    mockFetch.mockResolvedValueOnce(serperResponse([]));
+    mockFetch.mockResolvedValueOnce(serpApiResponse([]));
 
     const result = await findListingUrlViaSerper(testAddress);
 
     expect(result).toBeNull();
   });
 
-  it('sends correct request format to Serper API', async () => {
-    mockFetch.mockResolvedValue(serperResponse([]));
+  it('sends correct request format to SerpAPI', async () => {
+    mockFetch.mockResolvedValue(serpApiResponse([]));
 
     await findListingUrlViaSerper(testAddress);
 
     const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe('https://google.serper.dev/search');
-    expect(options.method).toBe('POST');
-    expect(options.headers['X-API-KEY']).toBe('test-serper-key');
-    expect(options.headers['Content-Type']).toBe('application/json');
-
-    const body = JSON.parse(options.body);
-    expect(body.q).toContain('site:domain.com.au');
-    expect(body.q).toContain('"44 Red Rocks Rd Cowes VIC 3922"');
-    expect(body.gl).toBe('au');
+    // SerpAPI uses GET with query params
+    expect(url).toContain('https://serpapi.com/search.json');
+    expect(url).toContain('api_key=test-serpapi-key');
+    expect(url).toContain('gl=au');
+    expect(url).toContain('engine=google');
+    expect(url).toContain('site%3Adomain.com.au');
+    // Should be GET (no method specified = GET by default)
+    expect(options.method).toBeUndefined();
   });
 
   it('returns null when API returns error status', async () => {
@@ -130,7 +127,7 @@ describe('findListingUrlViaSerper', () => {
   });
 
   it('includes title and snippet in result', async () => {
-    mockFetch.mockResolvedValueOnce(serperResponse([
+    mockFetch.mockResolvedValueOnce(serpApiResponse([
       {
         title: '44 Red Rocks Road, Cowes VIC 3922 - House for Sale',
         link: 'https://www.domain.com.au/44-red-rocks-road-cowes-vic-3922-2019540812',

@@ -1,15 +1,18 @@
 /**
- * Serper.dev Google Search - fast address-to-listing-URL resolution.
+ * SerpAPI Google Search - fast address-to-listing-URL resolution.
  *
  * Uses `site:domain.com.au` or `site:realestate.com.au` Google search
  * to find the exact listing page URL for a given address.
- * Typically resolves in 1-2 seconds at $0.001 per query.
+ * Typically resolves in 1-2 seconds.
+ *
+ * Uses SerpAPI (serpapi.com), not Serper.dev - different service.
+ * Env var is SERPER_API_KEY for backwards compat but it's a SerpAPI key.
  */
 
 import type { ParsedAddress } from '../extractors/listing-types';
 import { formatAddressForSearch } from '../extractors/listing-types';
 
-const SERPER_ENDPOINT = 'https://google.serper.dev/search';
+const SERPAPI_ENDPOINT = 'https://serpapi.com/search.json';
 const TIMEOUT_MS = 10000;
 
 export interface SerperLookupResult {
@@ -19,21 +22,22 @@ export interface SerperLookupResult {
   snippet: string;
 }
 
-/** Serper.dev API response types */
-interface SerperOrganicResult {
+/** SerpAPI organic result */
+interface SerpApiOrganicResult {
   title: string;
   link: string;
   snippet?: string;
   position?: number;
 }
 
-interface SerperResponse {
-  organic?: SerperOrganicResult[];
-  searchParameters?: { q: string };
+/** SerpAPI response (subset) */
+interface SerpApiResponse {
+  organic_results?: SerpApiOrganicResult[];
+  search_metadata?: { status: string };
 }
 
 /**
- * Search Google via Serper.dev for a property listing URL.
+ * Search Google via SerpAPI for a property listing URL.
  *
  * Tries Domain first, then REA. Returns the first matching listing URL.
  * Returns null if no listing found or if SERPER_API_KEY is not configured.
@@ -41,7 +45,7 @@ interface SerperResponse {
 export async function findListingUrlViaSerper(address: ParsedAddress): Promise<SerperLookupResult | null> {
   const apiKey = process.env.SERPER_API_KEY;
   if (!apiKey) {
-    console.log('[serper] SERPER_API_KEY not configured, skipping');
+    console.log('[serpapi] SERPER_API_KEY not configured, skipping');
     return null;
   }
 
@@ -55,7 +59,7 @@ export async function findListingUrlViaSerper(address: ParsedAddress): Promise<S
   const reaResult = await searchSite('realestate.com.au', addressStr, apiKey);
   if (reaResult) return reaResult;
 
-  console.log('[serper] No listing found on Domain or REA');
+  console.log('[serpapi] No listing found on Domain or REA');
   return null;
 }
 
@@ -65,30 +69,28 @@ async function searchSite(
   apiKey: string,
 ): Promise<SerperLookupResult | null> {
   const query = `site:${site} "${addressStr}"`;
-  console.log(`[serper] Searching: ${query}`);
+  console.log(`[serpapi] Searching: ${query}`);
 
   try {
-    const response = await fetch(SERPER_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'X-API-KEY': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        q: query,
-        gl: 'au',
-        num: 3,
-      }),
+    const params = new URLSearchParams({
+      q: query,
+      api_key: apiKey,
+      gl: 'au',
+      num: '3',
+      engine: 'google',
+    });
+
+    const response = await fetch(`${SERPAPI_ENDPOINT}?${params}`, {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
 
     if (!response.ok) {
-      console.error(`[serper] API returned ${response.status}: ${response.statusText}`);
+      console.error(`[serpapi] API returned ${response.status}: ${response.statusText}`);
       return null;
     }
 
-    const data = (await response.json()) as SerperResponse;
-    const results = data.organic || [];
+    const data = (await response.json()) as SerpApiResponse;
+    const results = data.organic_results || [];
 
     // Find the first result that's an actual listing page (not a search/suburb page)
     for (const result of results) {
@@ -96,37 +98,33 @@ async function searchSite(
       if (!url) continue;
 
       if (site === 'domain.com.au' && isDomainListingUrl(url)) {
-        console.log(`[serper] Found Domain listing: ${url}`);
+        console.log(`[serpapi] Found Domain listing: ${url}`);
         return { url, source: 'domain', title: result.title, snippet: result.snippet || '' };
       }
 
       if (site === 'realestate.com.au' && isReaListingUrl(url)) {
-        console.log(`[serper] Found REA listing: ${url}`);
+        console.log(`[serpapi] Found REA listing: ${url}`);
         return { url, source: 'rea', title: result.title, snippet: result.snippet || '' };
       }
     }
 
-    console.log(`[serper] No listing URL found in ${results.length} results from ${site}`);
+    console.log(`[serpapi] No listing URL found in ${results.length} results from ${site}`);
     return null;
   } catch (err) {
-    console.error(`[serper] Search failed:`, err instanceof Error ? err.message : err);
+    console.error(`[serpapi] Search failed:`, err instanceof Error ? err.message : err);
     return null;
   }
 }
 
 /** Check if a URL is a Domain.com.au individual listing page (not search/suburb) */
 function isDomainListingUrl(url: string): boolean {
-  // Listing pages: domain.com.au/{address-slug}-{listing-id}
-  // Exclude: /sale/, /rent/, /suburb-profile/, /news/, /advice/
   if (!/domain\.com\.au/i.test(url)) return false;
   if (/\/(sale|rent|suburb-profile|news|advice|auction-results|property-profile)\//i.test(url)) return false;
-  // Listing URLs have a numeric ID at the end
   return /domain\.com\.au\/[a-z0-9-]+-\d{5,}$/i.test(url);
 }
 
 /** Check if a URL is a realestate.com.au individual listing page (not search) */
 function isReaListingUrl(url: string): boolean {
-  // Listing pages: realestate.com.au/property-{type}-{state}-{suburb}-{id}
   if (!/realestate\.com\.au/i.test(url)) return false;
   return /realestate\.com\.au\/property-[a-z]+-[a-z]+-[a-z+]+-\d+/i.test(url);
 }

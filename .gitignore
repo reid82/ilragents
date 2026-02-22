@@ -23,5 +23,8 @@ eval-report.json
 # Supabase temp files
 packages/pipeline/supabase/.temp/
 
+# Worktrees
+.worktrees/
+
 # OS files
 .DS_Store

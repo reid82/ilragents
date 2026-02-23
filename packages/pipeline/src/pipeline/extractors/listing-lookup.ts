@@ -11,7 +11,7 @@ import type { PageExtractor } from '../intelligence/bright-data-scraper';
 export interface LookupResult {
   status: 'found' | 'not-found' | 'no-address';
   listing: ListingData | null;
-  source?: 'serper-domain' | 'serper-rea' | 'serper-onthehouse' | 'domain-api';
+  source?: 'serper-domain' | 'serper-rea' | 'serper-onthehouse' | 'domain-api' | 'hpf';
   addressSearched?: string;
   parsedAddress?: ParsedAddress;
 }
@@ -300,6 +300,7 @@ export async function scrapeListingByUrl(
  * Look up a property listing from a user message containing an address.
  *
  * Flow:
+ * 0. HPF service (if configured and healthy) - single source for all data
  * 1. Extract address from message via LLM
  * 2. SerpAPI: search all three sites in parallel (REA, Domain, OTH)
  * 3. Try each source in richness order: scrape via Bright Data -> Cheerio -> snippet
@@ -322,6 +323,43 @@ export async function lookupListingByAddress(
 
   const addressString = formatAddressForSearch(address);
   console.log('[listing-lookup] Address extracted:', addressString);
+
+  // Step 0: HPF service (if configured)
+  if (process.env.HPF_SERVICE_URL) {
+    try {
+      const { isHpfHealthy, lookupViaHpf } = await import('../intelligence/hpf-client');
+      progress('Checking Hot Property Finder...');
+
+      if (await isHpfHealthy()) {
+        const hpfResult = await lookupViaHpf(
+          addressString,
+          address.suburb,
+          address.state || '',
+          address.postcode || '',
+        );
+
+        if (hpfResult?.listing) {
+          const richness = countRichFields(hpfResult.listing);
+          console.log(`[listing-lookup] HPF returned ${richness} rich fields in ${hpfResult.fetchedMs}ms`);
+
+          if (richness >= MIN_RICH_FIELDS) {
+            return {
+              status: 'found',
+              listing: hpfResult.listing,
+              source: 'hpf',
+              addressSearched: addressString,
+              parsedAddress: address,
+            };
+          }
+          console.log('[listing-lookup] HPF data too thin, falling through to other sources');
+        }
+      } else {
+        console.log('[listing-lookup] HPF service not healthy, falling through');
+      }
+    } catch (err) {
+      console.log(`[listing-lookup] HPF lookup failed (non-fatal): ${err instanceof Error ? err.message : err}`);
+    }
+  }
 
   // Step 2: SerpAPI Google search - all sites in parallel
   try {

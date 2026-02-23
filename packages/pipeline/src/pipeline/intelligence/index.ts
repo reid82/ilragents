@@ -10,3 +10,5 @@ export { getNeighbourhoodSentiment } from './sentiment-scraper';
 export { searchListingViaApify } from './apify-listing-lookup';
 export { enrichListingDetail } from './apify-listing-detail';
 export { findListingUrlViaSerper } from './serper-lookup';
+export { isHpfHealthy, lookupViaHpf, getSuburbViaHpf } from './hpf-client';
+export type { HpfResult } from './hpf-client';

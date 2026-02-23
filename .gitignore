@@ -15,6 +15,7 @@ packages/pipeline/data/transcripts/*
 packages/pipeline/data/case-studies/*
 packages/pipeline/data/pdfs/*
 packages/pipeline/data/chunks/*
+packages/pipeline/data/hpf-discovery/*
 !packages/pipeline/data/**/.gitkeep
 
 # Eval reports

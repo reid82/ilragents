@@ -296,7 +296,9 @@ export class ExtractionRouter {
     if (!cookieHeader) throw new Error('No auth cookies available');
 
     // Step 1: Search for the property by address
-    const searchQuery = [address, suburb, state, postcode].filter(Boolean).join(' ');
+    // The pipeline sends address as "23 Station St Fairfield VIC 3078" (already includes
+    // suburb/state/postcode). Only append extras if they're NOT already in the address.
+    const searchQuery = this.buildSearchQuery(address, suburb, state, postcode);
     const searchResults = await this.hpfFetch<HpfSearchResult[]>(
       `/app/api/properties/search?q=${encodeURIComponent(searchQuery)}`,
       cookieHeader,
@@ -420,9 +422,9 @@ export class ExtractionRouter {
     });
 
     // Navigate to HPF and search for the property
-    const searchQuery = [address, suburb, state, postcode].filter(Boolean).join(' ');
+    const searchQuery = this.buildSearchQuery(address, suburb, state, postcode);
     await page.goto(`${config.hpf.apiBase}/app/`, {
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded',
       timeout: config.browser.requestTimeoutMs,
     });
 
@@ -447,6 +449,30 @@ export class ExtractionRouter {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
+
+  /**
+   * Build a clean search query without duplicating suburb/state/postcode.
+   * The pipeline often sends address as "23 Station St Fairfield VIC 3078"
+   * (already containing suburb/state/postcode), plus separate fields.
+   * Naively joining all fields produces "23 Station St Fairfield VIC 3078 Fairfield VIC 3078".
+   */
+  private buildSearchQuery(
+    address: string,
+    suburb?: string,
+    state?: string,
+    postcode?: string,
+  ): string {
+    // Check if address already contains postcode (strong signal it's a full address)
+    if (postcode && address.includes(postcode)) {
+      return address;
+    }
+    // Check if address already contains suburb + state pattern
+    if (suburb && state && address.toLowerCase().includes(suburb.toLowerCase()) && address.includes(state)) {
+      return address;
+    }
+    // Otherwise, append missing parts
+    return [address, suburb, state, postcode].filter(Boolean).join(' ');
+  }
 
   /**
    * Extract cookie header string from browser context.

@@ -71,6 +71,14 @@ app.post<{
     const listing = mapToListingData(result);
     const suburbContext = result.suburbProfile ? mapToSuburbContext(result) : null;
 
+    // Populate suburb stats on the listing data from the suburb profile
+    if (suburbContext) {
+      listing.suburbMedianPrice = suburbContext.medianHousePrice;
+      listing.suburbMedianRent = suburbContext.medianWeeklyRent;
+      listing.suburbDaysOnMarket = suburbContext.averageDaysOnMarket;
+      listing.suburbAuctionClearance = suburbContext.auctionClearanceRate;
+    }
+
     return {
       listing,
       suburb: suburbContext,

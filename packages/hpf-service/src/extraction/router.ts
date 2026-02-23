@@ -21,12 +21,18 @@ export interface HpfPropertyDetail {
   postcode: string;
   state: string;
   address: string;
+  addressLine1: string;
+  addressLine2: string;
   zone: string[];
   landArea: number | null;
   frontage: number | null;
   lga: string;
   status: string;
   type: string;
+  propertyType: string;
+  propertyCategory: string;
+  yearBuilt: number | null;
+  tenure: string | null;
   attributes: {
     bedrooms: number | null;
     bathrooms: number | null;
@@ -66,7 +72,22 @@ export interface HpfPropertyDetail {
     display: string;
     name?: string;
   }>;
+  locationInsights: {
+    neighbourhoodDemographics: {
+      ownedRatio: number;
+      rentedRatio: number;
+      socialHousingRatio: number;
+      seifa: Record<string, unknown>;
+    };
+    nearestMajorUrban: {
+      cbd: { value: number; unit: string; display: string };
+    };
+    remoteness: string;
+  } | null;
+  propertyLifeCycle: { stage: string } | null;
+  tenancyLifeCycle: { stage: string } | null;
   location?: { type: string; coordinates: [number, number] };
+  geom?: unknown;
   [key: string]: unknown;
 }
 
@@ -110,10 +131,78 @@ export interface HpfSuburbProfile {
     pid: string;
     slug: string;
     location: { type: string; coordinates: [number, number] };
+    bbox?: unknown;
+    boundary?: unknown;
   };
-  demographics?: Record<string, unknown>;
-  medianPrices?: Record<string, unknown>;
-  rentalYield?: Record<string, unknown>;
+  demographics: {
+    population: {
+      total: number;
+      populationGrowth1Year: number | null;
+      populationGrowth3Year: number | null;
+      populationGrowth5Year: number | null;
+      populationGrowth10Year: number | null;
+      medianMortgageRepayMonthly: number | null;
+      medianRentWeekly: number | null;
+      medianHouseholdIncomeWeekly: number | null;
+      [key: string]: unknown; // age breakdowns, occupation, commute, etc.
+    };
+    housing: {
+      totalPrivateDwellings: number | null;
+      house: { total: number } | null;
+      unit: { total: number } | null;
+      ownedRatio: number | null;
+      rentedRatio: number | null;
+      buildingApprovals: number | null;
+      [key: string]: unknown;
+    };
+    seifa: Record<string, unknown>;
+  } | null;
+  statistics: {
+    house: {
+      sold: {
+        count: number;
+        mean: number | null;
+        min: number | null;
+        max: number | null;
+        median: number | null;
+        q1: number | null;
+        q3: number | null;
+        discountMedian: number | null;
+        medianGrowth: number | null;
+        domMedian: number | null;
+        pageviewsMedian: number | null;
+      } | null;
+      leased: {
+        count: number;
+        mean: number | null;
+        median: number | null;
+        domMedian: number | null;
+      } | null;
+      forSale: { count: number } | null;
+      forRent: { count: number } | null;
+      investment: {
+        yieldMedian: number | null;
+        yieldMean: number | null;
+        vacancyRate: number | null;
+        marketAbsorptionRate: number | null;
+        stockOnMarket: number | null;
+        salePriceMedianGrowth1Year: number | null;
+        salePriceMedianGrowth3Year: number | null;
+        salePriceMedianGrowth5Year: number | null;
+        salePriceMedianGrowth10Year: number | null;
+        [key: string]: unknown;
+      } | null;
+    } | null;
+    unit?: {
+      sold: { count: number; median: number | null; domMedian: number | null } | null;
+      leased: { count: number; median: number | null } | null;
+      investment: { yieldMedian: number | null; vacancyRate: number | null } | null;
+    } | null;
+    bedrooms?: Record<string, Record<string, unknown>> | null;
+  } | null;
+  textSummary: string | null;
+  neighbourhood: Record<string, unknown> | null;
+  links?: unknown[];
   [key: string]: unknown;
 }
 

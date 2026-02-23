@@ -3,11 +3,16 @@
  *
  * HPF property detail response fields (from discovery):
  *   id, rpd, govId, locality, buildingArea, localityPid, lotCount,
- *   images[], postcode, state, address, zone[], landArea, frontage,
- *   lga, status, type, attributes{bedrooms, bathrooms, parkingSpaces},
+ *   images[], postcode, state, address, addressLine1, addressLine2,
+ *   zone[], landArea, frontage, lga, status, type, propertyType,
+ *   propertyCategory, yearBuilt, tenure,
+ *   attributes{bedrooms, bathrooms, parkingSpaces},
  *   lastSale{date}, sales[], rentals[], valuations[], listings[],
  *   nearbyDetails{education, shopping, train, bus, school, ...},
- *   location{coordinates}
+ *   locationInsights{neighbourhoodDemographics{ownedRatio, rentedRatio, seifa},
+ *     nearestMajorUrban{cbd{value, unit, display}}, remoteness},
+ *   propertyLifeCycle{stage}, tenancyLifeCycle{stage},
+ *   location{coordinates}, geom
  */
 
 import type { ExtractionResult, HpfPropertyDetail, HpfNeighbour, HpfExternalLink } from '../extraction/router';
@@ -83,8 +88,10 @@ export function mapToListingData(result: ExtractionResult): ListingData {
   const neighbours = result.neighbours;
   const links = result.externalLinks;
 
-  // Build full address string
-  const fullAddress = [p.address, p.locality, p.state, p.postcode].filter(Boolean).join(', ');
+  // Build full address string -- prefer addressLine1/addressLine2 if available
+  const fullAddress = p.addressLine1 && p.addressLine2
+    ? `${p.addressLine1}, ${p.addressLine2}`
+    : [p.address, p.locality, p.state, p.postcode].filter(Boolean).join(', ');
 
   // Find the URL to use (prefer Domain or REA listing page)
   const url = pickBestUrl(links, p);
@@ -119,12 +126,23 @@ export function mapToListingData(result: ExtractionResult): ListingData {
     .sort((a, b) => (a.priority || 0) - (b.priority || 0))
     .map(img => img.url);
 
-  // Build features list from zone, nearby details, etc.
+  // Build features list from zone, nearby details, property attributes, etc.
   const features: string[] = [];
   if (p.zone?.length) features.push(`Zoning: ${p.zone[0]}`);
   if (p.lga) features.push(`LGA: ${p.lga}`);
   if (p.frontage) features.push(`Frontage: ${p.frontage}m`);
   if (p.lotCount && p.lotCount > 1) features.push(`Lot count: ${p.lotCount}`);
+  if (p.yearBuilt) features.push(`Year built: ${p.yearBuilt}`);
+  if (p.tenure) features.push(`Tenure: ${p.tenure}`);
+  if (p.locationInsights?.nearestMajorUrban?.cbd?.display) {
+    features.push(`CBD distance: ${p.locationInsights.nearestMajorUrban.cbd.display}`);
+  }
+  if (p.locationInsights?.remoteness) {
+    features.push(`Remoteness: ${p.locationInsights.remoteness}`);
+  }
+  if (p.propertyLifeCycle?.stage) {
+    features.push(`Market status: ${p.propertyLifeCycle.stage}`);
+  }
 
   // Build fullFeatures from nearby details
   const fullFeatures: Record<string, string[]> = {};
@@ -147,7 +165,7 @@ export function mapToListingData(result: ExtractionResult): ListingData {
     suburb: p.locality || '',
     state: p.state || '',
     postcode: p.postcode || '',
-    propertyType: p.type || 'unknown',
+    propertyType: p.propertyType || p.type || 'unknown',
     bedrooms: p.attributes?.bedrooms ?? null,
     bathrooms: p.attributes?.bathrooms ?? null,
     parking: p.attributes?.parkingSpaces ?? null,
@@ -184,6 +202,19 @@ export function mapToListingData(result: ExtractionResult): ListingData {
       hpfRpd: p.rpd,
       hpfGovId: p.govId,
       hpfLocalityPid: p.localityPid,
+      yearBuilt: p.yearBuilt,
+      tenure: p.tenure,
+      propertyCategory: p.propertyCategory,
+      propertyLifeCycle: p.propertyLifeCycle?.stage ?? null,
+      tenancyLifeCycle: p.tenancyLifeCycle?.stage ?? null,
+      locationInsights: p.locationInsights ? {
+        ownedRatio: p.locationInsights.neighbourhoodDemographics?.ownedRatio,
+        rentedRatio: p.locationInsights.neighbourhoodDemographics?.rentedRatio,
+        seifa: p.locationInsights.neighbourhoodDemographics?.seifa,
+        cbdDistance: p.locationInsights.nearestMajorUrban?.cbd?.value,
+        cbdDistanceDisplay: p.locationInsights.nearestMajorUrban?.cbd?.display,
+        remoteness: p.locationInsights.remoteness,
+      } : null,
       avm: avm ? {
         value: avm.value,
         rangeLow: avm.range?.lower,

@@ -18,6 +18,9 @@ packages/pipeline/data/chunks/*
 packages/pipeline/data/hpf-discovery/*
 !packages/pipeline/data/**/.gitkeep
 
+# HPF service data (session cookies, test results)
+packages/hpf-service/data/
+
 # Eval reports
 eval-report.json
 

@@ -1,19 +1,25 @@
 /**
  * Maps HPF suburb profile data to the pipeline's SuburbContext type.
  *
- * HPF suburb profile response contains:
+ * HPF suburb profile response structure (from discovery):
  *   suburb{name, postcode, state, pid, slug, location, bbox, boundary}
- *   + demographic/statistical data (full shape TBD - needs higher truncation limit)
- *
- * The suburb profile response was 17489 bytes in discovery -- most of the
- * truncated preview was boundary polygon data. The actual statistics are
- * in the remainder of the response which we haven't fully captured yet.
- *
- * This mapper extracts whatever fields are available and returns null
- * for fields not present in the HPF response.
+ *   demographics.population{total, populationGrowth1/3/5/10Year,
+ *     medianMortgageRepayMonthly, medianRentWeekly, medianHouseholdIncomeWeekly,
+ *     age breakdowns, occupation breakdowns, commute methods}
+ *   demographics.housing{totalPrivateDwellings, house, unit,
+ *     ownedRatio, rentedRatio, buildingApprovals}
+ *   demographics.seifa{...SEIFA indices}
+ *   statistics.house.sold{count, mean, min, max, median, q1, q3,
+ *     discountMedian, medianGrowth, domMedian, pageviewsMedian}
+ *   statistics.house.leased{count, mean, median, domMedian}
+ *   statistics.house.investment{yieldMedian, yieldMean, vacancyRate,
+ *     marketAbsorptionRate, stockOnMarket, salePriceMedianGrowth1/3/5/10Year}
+ *   statistics.bedrooms.house.{2,3,4,5}{sold/leased/investment}
+ *   textSummary (AI-generated suburb description)
+ *   neighbourhood{education metrics, locality flags, CBD distance}
  */
 
-import type { ExtractionResult, HpfSuburbProfile } from '../extraction/router';
+import type { ExtractionResult } from '../extraction/router';
 
 // Mirror the pipeline's SuburbContext shape
 export interface SuburbContext {
@@ -32,68 +38,93 @@ export interface SuburbContext {
   vacancyRate: number | null;
   averageDaysOnMarket: number | null;
   predominantZoning: string | null;
+  auctionClearanceRate: number | null;
+  populationTotal: number | null;
+  medianMortgageRepayMonthly: number | null;
+  priceGrowth1yr: number | null;
+  priceGrowth3yr: number | null;
+  priceGrowth5yr: number | null;
+  priceGrowth10yr: number | null;
+  stockOnMarket: number | null;
+  marketAbsorptionRate: number | null;
+  textSummary: string | null;
   dataAsOf: string;
   dataSources: string[];
 }
 
 /**
  * Map HPF extraction result to SuburbContext.
- * Extracts suburb statistics from the suburb profile response.
+ * Uses exact field paths from the HPF suburb profile API response.
  */
 export function mapToSuburbContext(result: ExtractionResult): SuburbContext | null {
   const sp = result.suburbProfile;
   if (!sp?.suburb) return null;
 
   const s = sp.suburb;
+  const pop = sp.demographics?.population;
+  const housing = sp.demographics?.housing as Record<string, unknown> | undefined;
+  const houseSold = sp.statistics?.house?.sold;
+  const houseLeased = sp.statistics?.house?.leased;
+  const houseInv = sp.statistics?.house?.investment;
+  const unitSold = sp.statistics?.unit?.sold;
 
-  // Extract statistics from the suburb profile response.
-  // Field paths are based on HPF's response structure -- we access them
-  // dynamically since the full schema isn't known yet.
-  const raw = sp as Record<string, unknown>;
-
-  // Try common paths for median price data
-  const medianPrices = raw.medianPrices as Record<string, unknown> | undefined;
-  const demographics = raw.demographics as Record<string, unknown> | undefined;
-  const rentalYield = raw.rentalYield as Record<string, unknown> | undefined;
-  const marketActivity = raw.marketActivity as Record<string, unknown> | undefined;
-
-  // Also check for flat/nested stats patterns HPF might use
-  const stats = raw.statistics as Record<string, unknown> | undefined;
+  // medianHouseholdIncomeWeekly is per week -- annualize it
+  const weeklyIncome = pop?.medianHouseholdIncomeWeekly;
+  const annualIncome = typeof weeklyIncome === 'number' ? weeklyIncome * 52 : null;
 
   return {
     suburb: s.name || '',
     state: s.state || '',
     postcode: s.postcode || '',
-    medianHouseholdIncome: extractNumber(demographics, 'medianHouseholdIncome', 'householdIncome', 'income'),
-    populationGrowth5yr: extractNumber(demographics, 'populationGrowth5yr', 'populationGrowth', 'popGrowth'),
-    ownerOccupierPct: extractNumber(demographics, 'ownerOccupierPct', 'ownerOccupied', 'ownerOccupierRate'),
-    medianAge: extractNumber(demographics, 'medianAge', 'age'),
-    familyHouseholdPct: extractNumber(demographics, 'familyHouseholdPct', 'familyHouseholds', 'families'),
-    medianHousePrice: extractNumber(medianPrices || stats, 'house', 'medianHousePrice', 'housePriceMedian'),
-    medianUnitPrice: extractNumber(medianPrices || stats, 'unit', 'medianUnitPrice', 'unitPriceMedian'),
-    medianWeeklyRent: extractNumber(rentalYield || stats, 'medianRent', 'medianWeeklyRent', 'rent'),
-    grossRentalYield: extractNumber(rentalYield || stats, 'grossYield', 'rentalYield', 'yield'),
-    vacancyRate: extractNumber(stats, 'vacancyRate', 'vacancy'),
-    averageDaysOnMarket: extractNumber(marketActivity || stats, 'averageDaysOnMarket', 'daysOnMarket', 'dom'),
+
+    // Demographics
+    medianHouseholdIncome: annualIncome,
+    populationGrowth5yr: pop?.populationGrowth5Year ?? null,
+    ownerOccupierPct: getNestedNumber(housing, 'total', 'ownedRatio')
+      ?? getNestedNumber(housing, 'house', 'ownedRatio')
+      ?? null,
+    medianAge: null, // HPF provides age distribution breakdowns, not a single median
+    familyHouseholdPct: null, // Not directly available from HPF
+    populationTotal: pop?.total ?? null,
+    medianMortgageRepayMonthly: pop?.medianMortgageRepayMonthly ?? null,
+
+    // House prices
+    medianHousePrice: houseSold?.median ?? null,
+    medianUnitPrice: unitSold?.median ?? null,
+    medianWeeklyRent: houseLeased?.median ?? pop?.medianRentWeekly ?? null,
+    averageDaysOnMarket: houseSold?.domMedian ?? null,
+    auctionClearanceRate: null, // Not available from HPF
+
+    // Investment metrics
+    grossRentalYield: houseInv?.yieldMedian ?? null,
+    vacancyRate: houseInv?.vacancyRate ?? null,
+    stockOnMarket: houseInv?.stockOnMarket ?? null,
+    marketAbsorptionRate: houseInv?.marketAbsorptionRate ?? null,
+
+    // Price growth
+    priceGrowth1yr: houseInv?.salePriceMedianGrowth1Year ?? null,
+    priceGrowth3yr: houseInv?.salePriceMedianGrowth3Year ?? null,
+    priceGrowth5yr: houseInv?.salePriceMedianGrowth5Year ?? null,
+    priceGrowth10yr: houseInv?.salePriceMedianGrowth10Year ?? null,
+
+    // Zoning and text
     predominantZoning: result.planning?.zone ?? null,
+    textSummary: sp.textSummary ?? null,
+
     dataAsOf: new Date().toISOString(),
     dataSources: ['hpf'],
   };
 }
 
-/**
- * Try multiple possible field names to extract a numeric value from an object.
- */
-function extractNumber(obj: Record<string, unknown> | undefined, ...keys: string[]): number | null {
-  if (!obj) return null;
+/** Safely access a nested numeric value like obj.key1.key2 */
+function getNestedNumber(
+  obj: Record<string, unknown> | undefined,
+  ...keys: string[]
+): number | undefined {
+  let current: unknown = obj;
   for (const key of keys) {
-    const val = obj[key];
-    if (typeof val === 'number' && !isNaN(val)) return val;
-    // Handle nested objects like { value: 123, display: "$123" }
-    if (val && typeof val === 'object' && 'value' in (val as Record<string, unknown>)) {
-      const inner = (val as Record<string, unknown>).value;
-      if (typeof inner === 'number' && !isNaN(inner)) return inner;
-    }
+    if (!current || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[key];
   }
-  return null;
+  return typeof current === 'number' && !isNaN(current) ? current : undefined;
 }

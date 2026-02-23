@@ -8,6 +8,8 @@ export const config = {
     baseUrl: process.env.HPF_BASE_URL || 'https://app.hotpropertyfinder.ai',
     loginUrl: process.env.HPF_LOGIN_URL || 'https://app.hotpropertyfinder.ai/auth/login/',
     apiBase: process.env.HPF_API_BASE || 'https://app.hotpropertyfinder.ai',
+    email: process.env.HPF_EMAIL || '',
+    password: process.env.HPF_PASSWORD || '',
   },
 
   browser: {

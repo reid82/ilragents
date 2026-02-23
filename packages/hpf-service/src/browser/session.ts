@@ -52,14 +52,27 @@ export class SessionManager {
 
       // Fallback: page-based validation
       const pageValid = await this.validateViaPage();
-      this.status = pageValid ? 'active' : 'expired';
-      this.lastValidation = now;
-
-      if (!pageValid) {
-        console.warn('[session] Session expired - needs manual re-login');
+      if (pageValid) {
+        this.status = 'active';
+        this.lastValidation = now;
+        return true;
       }
 
-      return pageValid;
+      // Session is dead - try auto-login if credentials are configured
+      if (config.hpf.email && config.hpf.password) {
+        console.log('[session] Session expired, attempting auto-login...');
+        const loggedIn = await this.autoLogin();
+        if (loggedIn) {
+          this.status = 'active';
+          this.lastValidation = now;
+          return true;
+        }
+      }
+
+      this.status = 'expired';
+      this.lastValidation = now;
+      console.warn('[session] Session expired - no valid credentials for auto-login');
+      return false;
     } catch (err) {
       console.error('[session] Validation failed:', err instanceof Error ? err.message : err);
       this.status = 'unknown';
@@ -88,7 +101,10 @@ export class SessionManager {
         signal: AbortSignal.timeout(10_000),
       });
 
-      return response.status === 200;
+      if (response.status !== 200) return false;
+      // Verify the response contains actual user data (not a guest/empty response)
+      const data = await response.json().catch(() => null);
+      return !!(data && typeof data === 'object' && ('email' in data || 'user' in data || 'id' in data));
     } catch {
       return false;
     }
@@ -149,13 +165,59 @@ export class SessionManager {
   private async validateViaPage(): Promise<boolean> {
     const page = await this.browserManager.newPage();
     try {
-      await page.goto(`${config.hpf.apiBase}/app/`, {
+      const response = await page.goto(`${config.hpf.apiBase}/app/`, {
         waitUntil: 'domcontentloaded',
         timeout: 15_000,
       });
 
+      // Wait for any client-side redirects to settle
+      await page.waitForTimeout(2000);
+
       const url = page.url();
       return !url.includes('login') && !url.includes('signin') && !url.includes('/auth/');
+    } catch {
+      return false;
+    } finally {
+      await page.close();
+    }
+  }
+
+  /** Automate HPF login via Playwright */
+  private async autoLogin(): Promise<boolean> {
+    const page = await this.browserManager.newPage();
+    try {
+      console.log(`[session] Navigating to ${config.hpf.loginUrl}`);
+      await page.goto(config.hpf.loginUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
+
+      // Wait for the login form to appear
+      await page.waitForSelector('input[type="email"], input[name="email"], input[placeholder*="email" i]', { timeout: 10_000 });
+
+      // Fill email
+      const emailInput = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i]').first();
+      await emailInput.fill(config.hpf.email);
+
+      // Fill password
+      const passwordInput = page.locator('input[type="password"]').first();
+      await passwordInput.fill(config.hpf.password);
+
+      // Click submit button
+      const submitButton = page.locator('button[type="submit"], button:has-text("Sign in"), button:has-text("Log in"), button:has-text("Login")').first();
+      await submitButton.click();
+
+      // Wait for navigation away from login page
+      await page.waitForURL((url) => !url.toString().includes('/auth/'), { timeout: 15_000 });
+
+      console.log(`[session] Auto-login successful, landed on: ${page.url()}`);
+
+      // Save the new session
+      await this.browserManager.saveSession();
+      return true;
+    } catch (err) {
+      console.error('[session] Auto-login failed:', err instanceof Error ? err.message : err);
+      return false;
     } finally {
       await page.close();
     }

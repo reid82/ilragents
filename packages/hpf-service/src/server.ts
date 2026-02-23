@@ -110,8 +110,12 @@ async function start() {
     if (sessionValid) {
       console.log('[server] Session is valid');
     } else {
-      console.warn('[server] Session is NOT valid - manual login required via browser');
-      console.warn('[server] Service will start in degraded mode');
+      console.warn('[server] Session is NOT valid');
+      if (config.hpf.email && config.hpf.password) {
+        console.log('[server] Auto-login credentials configured - will attempt login on first request');
+      } else {
+        console.warn('[server] No auto-login credentials - service will start in degraded mode');
+      }
     }
 
     // Start keep-alive

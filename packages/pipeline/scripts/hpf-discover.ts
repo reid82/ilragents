@@ -442,136 +442,144 @@ function saveReport(report: DiscoveryReport) {
 
 // ── Interactive REPL ────────────────────────────────────────────────────────
 
-async function startRepl(page: Page, context: BrowserContext) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  console.log('\n=== HPF Discovery Mode ===');
-  console.log('Commands:');
-  console.log('  <url>      - Navigate to URL and capture data');
-  console.log('  capture    - Capture current page data (embedded JSON, etc.)');
-  console.log('  cookies    - Show current cookies');
-  console.log('  requests   - Show captured API requests summary');
-  console.log('  report     - Generate and save full discovery report');
-  console.log('  session    - Save browser session state to disk');
-  console.log('  quit       - Exit');
-  console.log('');
-
-  const prompt = () => {
-    rl.question('hpf> ', async (input) => {
-      const trimmed = input.trim();
-
-      if (!trimmed) {
-        prompt();
-        return;
-      }
-
-      if (trimmed === 'quit' || trimmed === 'exit') {
-        console.log('Generating final report...');
-        const authInfo = await captureAuthInfo(context, page);
-        const report = generateReport(authInfo);
-        saveReport(report);
-        rl.close();
-        return;
-      }
-
-      if (trimmed === 'capture') {
-        console.log('Capturing page data...');
-        const pageData = await extractPageData(page);
-        pageDataCaptures.push(pageData);
-        console.log(`  URL: ${pageData.url}`);
-        console.log(`  __NEXT_DATA__: ${pageData.nextData ? 'YES - ' + describeShape(pageData.nextData) : 'no'}`);
-        console.log(`  __NUXT__: ${pageData.nuxtData ? 'YES' : 'no'}`);
-        console.log(`  __INITIAL_STATE__: ${pageData.initialState ? 'YES' : 'no'}`);
-        console.log(`  Redux: ${pageData.reduxState ? 'YES' : 'no'}`);
-        console.log(`  JSON-LD: ${pageData.jsonLd.length} items`);
-        console.log(`  Meta tags: ${Object.keys(pageData.metaTags).length} tags`);
-        prompt();
-        return;
-      }
-
-      if (trimmed === 'cookies') {
-        const cookies = await context.cookies();
-        console.log(`\n  ${cookies.length} cookies:`);
-        for (const c of cookies) {
-          const expires = c.expires > 0 ? new Date(c.expires * 1000).toISOString() : 'session';
-          console.log(`    ${c.name} (${c.domain}) httpOnly=${c.httpOnly} expires=${expires}`);
-        }
-        console.log('');
-        prompt();
-        return;
-      }
-
-      if (trimmed === 'requests') {
-        console.log(`\n  ${capturedRequests.length} API requests captured:`);
-        const byEndpoint = new Map<string, number>();
-        for (const req of capturedRequests) {
-          const key = `${req.method} ${req.url.replace(HPF_BASE, '').replace(/\?.*$/, '')}`;
-          byEndpoint.set(key, (byEndpoint.get(key) || 0) + 1);
-        }
-        for (const [endpoint, count] of byEndpoint) {
-          console.log(`    ${endpoint} (x${count})`);
-        }
-        console.log('');
-        prompt();
-        return;
-      }
-
-      if (trimmed === 'report') {
-        console.log('Generating report...');
-        const authInfo = await captureAuthInfo(context, page);
-        const report = generateReport(authInfo);
-        saveReport(report);
-        prompt();
-        return;
-      }
-
-      if (trimmed === 'session') {
-        ensureReportDir();
-        const sessionPath = path.join(REPORT_DIR, 'hpf-session.json');
-        const state = await context.storageState();
-        fs.writeFileSync(sessionPath, JSON.stringify(state, null, 2));
-        console.log(`  Session state saved to: ${sessionPath}`);
-        prompt();
-        return;
-      }
-
-      // Assume it's a URL or path
-      let url = trimmed;
-      if (!url.startsWith('http')) {
-        url = url.startsWith('/') ? `${HPF_BASE}${url}` : `${HPF_BASE}/${url}`;
-      }
-
-      try {
-        console.log(`  Navigating to: ${url}`);
-        await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-        console.log(`  Page loaded: ${page.url()}`);
-
-        // Auto-capture page data
-        const pageData = await extractPageData(page);
-        pageDataCaptures.push(pageData);
-
-        if (pageData.nextData) console.log(`  __NEXT_DATA__ found! Shape: ${describeShape(pageData.nextData)}`);
-        if (pageData.nuxtData) console.log(`  __NUXT__ data found!`);
-        if (pageData.jsonLd.length > 0) console.log(`  ${pageData.jsonLd.length} JSON-LD items found`);
-
-        const recentApiCalls = capturedRequests.filter(r =>
-          new Date(r.timestamp).getTime() > Date.now() - 10000
-        );
-        if (recentApiCalls.length > 0) {
-          console.log(`  ${recentApiCalls.length} API calls captured during navigation`);
-        }
-      } catch (err) {
-        console.log(`  Navigation failed: ${err instanceof Error ? err.message : err}`);
-      }
-
-      prompt();
+async function startRepl(page: Page, context: BrowserContext): Promise<void> {
+  return new Promise<void>((resolveRepl) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: true,
     });
-  };
 
-  prompt();
+    console.log('\n=== HPF Discovery Mode ===');
+    console.log('Commands:');
+    console.log('  <url>      - Navigate to URL and capture data');
+    console.log('  capture    - Capture current page data (embedded JSON, etc.)');
+    console.log('  cookies    - Show current cookies');
+    console.log('  requests   - Show captured API requests summary');
+    console.log('  report     - Generate and save full discovery report');
+    console.log('  session    - Save browser session state to disk');
+    console.log('  quit       - Exit');
+    console.log('');
+
+    // Handle stdin closing unexpectedly (non-interactive context)
+    rl.on('close', () => {
+      resolveRepl();
+    });
+
+    const askNext = () => {
+      rl.question('hpf> ', async (input) => {
+        const trimmed = (input || '').trim();
+
+        if (!trimmed) {
+          askNext();
+          return;
+        }
+
+        if (trimmed === 'quit' || trimmed === 'exit') {
+          console.log('Generating final report...');
+          const authInfo = await captureAuthInfo(context, page);
+          const report = generateReport(authInfo);
+          saveReport(report);
+          rl.close();
+          return;
+        }
+
+        if (trimmed === 'capture') {
+          console.log('Capturing page data...');
+          const pageData = await extractPageData(page);
+          pageDataCaptures.push(pageData);
+          console.log(`  URL: ${pageData.url}`);
+          console.log(`  __NEXT_DATA__: ${pageData.nextData ? 'YES - ' + describeShape(pageData.nextData) : 'no'}`);
+          console.log(`  __NUXT__: ${pageData.nuxtData ? 'YES' : 'no'}`);
+          console.log(`  __INITIAL_STATE__: ${pageData.initialState ? 'YES' : 'no'}`);
+          console.log(`  Redux: ${pageData.reduxState ? 'YES' : 'no'}`);
+          console.log(`  JSON-LD: ${pageData.jsonLd.length} items`);
+          console.log(`  Meta tags: ${Object.keys(pageData.metaTags).length} tags`);
+          askNext();
+          return;
+        }
+
+        if (trimmed === 'cookies') {
+          const cookies = await context.cookies();
+          console.log(`\n  ${cookies.length} cookies:`);
+          for (const c of cookies) {
+            const expires = c.expires > 0 ? new Date(c.expires * 1000).toISOString() : 'session';
+            console.log(`    ${c.name} (${c.domain}) httpOnly=${c.httpOnly} expires=${expires}`);
+          }
+          console.log('');
+          askNext();
+          return;
+        }
+
+        if (trimmed === 'requests') {
+          console.log(`\n  ${capturedRequests.length} API requests captured:`);
+          const byEndpoint = new Map<string, number>();
+          for (const req of capturedRequests) {
+            const key = `${req.method} ${req.url.replace(HPF_BASE, '').replace(/\?.*$/, '')}`;
+            byEndpoint.set(key, (byEndpoint.get(key) || 0) + 1);
+          }
+          for (const [endpoint, count] of byEndpoint) {
+            console.log(`    ${endpoint} (x${count})`);
+          }
+          console.log('');
+          askNext();
+          return;
+        }
+
+        if (trimmed === 'report') {
+          console.log('Generating report...');
+          const authInfo = await captureAuthInfo(context, page);
+          const report = generateReport(authInfo);
+          saveReport(report);
+          askNext();
+          return;
+        }
+
+        if (trimmed === 'session') {
+          ensureReportDir();
+          const sessionPath = path.join(REPORT_DIR, 'hpf-session.json');
+          const state = await context.storageState();
+          fs.writeFileSync(sessionPath, JSON.stringify(state, null, 2));
+          console.log(`  Session state saved to: ${sessionPath}`);
+          askNext();
+          return;
+        }
+
+        // Assume it's a URL or path
+        let url = trimmed;
+        if (!url.startsWith('http')) {
+          url = url.startsWith('/') ? `${HPF_BASE}${url}` : `${HPF_BASE}/${url}`;
+        }
+
+        try {
+          console.log(`  Navigating to: ${url}`);
+          await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+          console.log(`  Page loaded: ${page.url()}`);
+
+          // Auto-capture page data
+          const pageData = await extractPageData(page);
+          pageDataCaptures.push(pageData);
+
+          if (pageData.nextData) console.log(`  __NEXT_DATA__ found! Shape: ${describeShape(pageData.nextData)}`);
+          if (pageData.nuxtData) console.log(`  __NUXT__ data found!`);
+          if (pageData.jsonLd.length > 0) console.log(`  ${pageData.jsonLd.length} JSON-LD items found`);
+
+          const recentApiCalls = capturedRequests.filter(r =>
+            new Date(r.timestamp).getTime() > Date.now() - 10000
+          );
+          if (recentApiCalls.length > 0) {
+            console.log(`  ${recentApiCalls.length} API calls captured during navigation`);
+          }
+        } catch (err) {
+          console.log(`  Navigation failed: ${err instanceof Error ? err.message : err}`);
+        }
+
+        askNext();
+      });
+    };
+
+    askNext();
+  });
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -635,18 +643,18 @@ async function main() {
   if (isLoginPage) {
     console.log('');
     console.log('>> You are on the login page. Please log in manually in the browser window.');
-    console.log('>> Once logged in and on an authenticated page, press Enter here to continue...');
+    console.log('>> Waiting for you to log in (will detect navigation away from login page)...');
     console.log('');
 
-    await new Promise<void>((resolve) => {
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      rl.question('Press Enter after logging in... ', () => {
-        rl.close();
-        resolve();
-      });
-    });
+    // Poll until the URL no longer contains login/signin/auth
+    await page.waitForURL((url) => {
+      const href = url.toString().toLowerCase();
+      return !href.includes('login') && !href.includes('signin') && !href.includes('/auth');
+    }, { timeout: 300_000 }); // 5 minute timeout for manual login
 
-    console.log('Continuing with authenticated session...');
+    // Wait for the authenticated page to fully load
+    await page.waitForLoadState('networkidle');
+    console.log(`Logged in! Now on: ${page.url()}`);
   } else if (hasSavedSession) {
     console.log('Session restored - already authenticated.');
   }

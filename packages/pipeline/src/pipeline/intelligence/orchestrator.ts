@@ -34,7 +34,22 @@ function emptySuburbContext(suburb: string, state: string, postcode: string): Su
   };
 }
 
-export async function enrichPropertyIntelligence(input: EnrichmentInput): Promise<PropertyIntelligence> {
+/** Optional pre-fetched data (e.g. from HPF) to skip redundant enrichment calls */
+interface PrefetchedData {
+  suburb?: SuburbContext;
+  intelligence?: PropertyIntelligence;
+}
+
+export async function enrichPropertyIntelligence(
+  input: EnrichmentInput,
+  prefetched?: PrefetchedData,
+): Promise<PropertyIntelligence> {
+  // If HPF already provided full intelligence data, return it directly
+  if (prefetched?.intelligence) {
+    console.log('[orchestrator] Using prefetched intelligence from HPF');
+    return prefetched.intelligence;
+  }
+
   const { address, suburb, state, postcode } = input;
   const errors: string[] = [];
 
@@ -46,9 +61,12 @@ export async function enrichPropertyIntelligence(input: EnrichmentInput): Promis
     getNeighbourhoodSentiment(suburb, state),
   ]);
 
-  // Build suburb context from suburb profile or fallback to empty
+  // Build suburb context from prefetched, suburb profile, or fallback to empty
   let suburbContext: SuburbContext;
-  if (suburbResult.status === 'fulfilled' && suburbResult.value) {
+  if (prefetched?.suburb) {
+    suburbContext = prefetched.suburb;
+    suburbContext.dataSources.push('hpf');
+  } else if (suburbResult.status === 'fulfilled' && suburbResult.value) {
     suburbContext = suburbResult.value;
   } else {
     suburbContext = emptySuburbContext(suburb, state, postcode);

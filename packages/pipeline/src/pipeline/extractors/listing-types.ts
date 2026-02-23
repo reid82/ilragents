@@ -1,5 +1,5 @@
 export interface ListingData {
-  source: 'domain' | 'rea' | 'onthehouse';
+  source: 'domain' | 'rea' | 'onthehouse' | 'hpf';
   url: string;
   // Property
   address: string;
@@ -43,7 +43,7 @@ export interface ListingData {
   fullFeatures: Record<string, string[]>;
   // Enrichment metadata
   enrichedAt: string | null;
-  enrichmentSource: 'apify-detail' | 'cheerio' | 'serp-snippet' | 'bright-data' | null;
+  enrichmentSource: 'apify-detail' | 'cheerio' | 'serp-snippet' | 'bright-data' | 'hpf' | null;
   // Raw
   rawData: Record<string, unknown>;
 }

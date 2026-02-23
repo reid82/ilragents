@@ -115,7 +115,7 @@ function isApiCall(url: string, contentType: string): boolean {
   return false;
 }
 
-function truncateBody(body: unknown, maxLen = 5000): unknown {
+function truncateBody(body: unknown, maxLen = 50000): unknown {
   const str = typeof body === 'string' ? body : JSON.stringify(body);
   if (!str || str.length <= maxLen) return body;
   return { _truncated: true, preview: str.slice(0, maxLen), totalLength: str.length };
@@ -173,6 +173,10 @@ async function captureResponse(response: Response) {
     let requestBody: string | null = null;
     try {
       requestBody = request.postData() || null;
+      // Redact credentials from login requests
+      if (requestBody && /\/auth\/api\/login/i.test(url)) {
+        requestBody = '[REDACTED - login credentials]';
+      }
     } catch {}
 
     const captured: CapturedRequest = {

@@ -3,8 +3,9 @@ import { config } from './config';
 import { BrowserManager } from './browser/manager';
 import { SessionManager } from './browser/session';
 import { RequestQueue } from './queue/request-queue';
-import { ExtractionRouter } from './extraction/router';
+import { ExtractionRouter, type ExtractionResult } from './extraction/router';
 import { mapToListingData } from './mapping/listing-mapper';
+import { mapToSuburbContext } from './mapping/suburb-mapper';
 import { getHealthStatus } from './health/healthcheck';
 
 const browserManager = new BrowserManager();
@@ -50,7 +51,7 @@ app.post<{
   }
 
   try {
-    const result = await requestQueue.enqueue(async () => {
+    const result = await requestQueue.enqueue<ExtractionResult | null>(async () => {
       // Validate session before each request
       const sessionValid = await sessionManager.validate();
       if (!sessionValid) {
@@ -67,12 +68,13 @@ app.post<{
     // Save session after successful request
     await browserManager.saveSession();
 
-    const listing = mapToListingData(result.data);
+    const listing = mapToListingData(result);
+    const suburbContext = result.suburbProfile ? mapToSuburbContext(result) : null;
 
     return {
       listing,
-      suburb: null,       // TODO: extract suburb data from HPF response
-      intelligence: null,  // TODO: extract intelligence data from HPF response
+      suburb: suburbContext,
+      intelligence: null, // Future: map HPF data to PropertyIntelligence
       source: 'hpf' as const,
       fetchedMs: result.fetchedMs,
     };

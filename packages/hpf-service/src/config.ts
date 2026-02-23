@@ -5,8 +5,9 @@ export const config = {
   apiKey: process.env.HPF_API_KEY || '',
 
   hpf: {
-    baseUrl: process.env.HPF_BASE_URL || 'https://hotpropertyfinder.ai',
-    loginUrl: process.env.HPF_LOGIN_URL || 'https://hotpropertyfinder.ai/login',
+    baseUrl: process.env.HPF_BASE_URL || 'https://app.hotpropertyfinder.ai',
+    loginUrl: process.env.HPF_LOGIN_URL || 'https://app.hotpropertyfinder.ai/auth/login/',
+    apiBase: process.env.HPF_API_BASE || 'https://app.hotpropertyfinder.ai',
   },
 
   browser: {

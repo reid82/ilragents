@@ -607,7 +607,7 @@ async function main() {
     const state = JSON.parse(fs.readFileSync(sessionPath, 'utf-8'));
     context = await browser.newContext({
       storageState: state,
-      viewport: null, // Use full window size
+      viewport: null,
     });
   } else {
     context = await browser.newContext({
@@ -636,55 +636,125 @@ async function main() {
     }
   }
 
-  // Check if we're on a login page
-  const currentUrl = page.url();
-  const isLoginPage = currentUrl.includes('login') || currentUrl.includes('signin') || currentUrl.includes('auth');
+  // ── Step 1: Ensure authenticated ──────────────────────────────────────
+  //
+  // Use page.pause() to hand control to the user. This opens Playwright's
+  // inspector toolbar at the top of the browser. The user can:
+  //   - Log in if needed
+  //   - Navigate to property pages manually
+  //   - Click the green "Resume" (play) button when ready to continue
+  //
+  console.log('');
+  console.log('==========================================================');
+  console.log('  The browser is now under YOUR control.');
+  console.log('');
+  console.log('  1. Log in to HPF if you are not already logged in');
+  console.log('  2. Navigate to a PROPERTY DETAIL page');
+  console.log('  3. Click the green RESUME button (play icon) at the');
+  console.log('     top of the browser to continue the script');
+  console.log('');
+  console.log('  All network requests are being captured in background.');
+  console.log('==========================================================');
+  console.log('');
 
-  if (isLoginPage) {
-    console.log('');
-    console.log('>> You are on the login page. Please log in manually in the browser window.');
-    console.log('>> Waiting for you to log in (will detect navigation away from login page)...');
-    console.log('');
+  await page.pause();
 
-    // Poll until the URL no longer contains login/signin/auth
-    await page.waitForURL((url) => {
-      const href = url.toString().toLowerCase();
-      return !href.includes('login') && !href.includes('signin') && !href.includes('/auth');
-    }, { timeout: 300_000 }); // 5 minute timeout for manual login
-
-    // Wait for the authenticated page to fully load
-    await page.waitForLoadState('networkidle');
-    console.log(`Logged in! Now on: ${page.url()}`);
-  } else if (hasSavedSession) {
-    console.log('Session restored - already authenticated.');
-  }
+  // ── Step 2: Capture current page ──────────────────────────────────────
+  console.log(`\nResumed! Current URL: ${page.url()}`);
+  console.log('Capturing page data...\n');
 
   // Detect tech stack
-  console.log('Detecting tech stack...');
   techStack = await detectTechStack(page, responseHeaders);
-  console.log(`  Framework: ${techStack.framework}`);
-  console.log(`  Server headers: ${JSON.stringify(techStack.serverHeaders)}`);
+  console.log(`Tech stack: ${techStack.framework}`);
+  console.log(`Server: ${JSON.stringify(techStack.serverHeaders)}`);
 
-  // Capture initial page data
-  const initialPageData = await extractPageData(page);
-  pageDataCaptures.push(initialPageData);
+  // Capture page data
+  const pageData1 = await extractPageData(page);
+  pageDataCaptures.push(pageData1);
 
-  if (initialPageData.nextData) {
-    console.log(`  __NEXT_DATA__ found! This is a Next.js app - API interception should work well.`);
+  console.log(`__NEXT_DATA__: ${pageData1.nextData ? 'YES' : 'no'}`);
+  console.log(`__NUXT__: ${pageData1.nuxtData ? 'YES' : 'no'}`);
+  console.log(`__INITIAL_STATE__: ${pageData1.initialState ? 'YES' : 'no'}`);
+  console.log(`Redux: ${pageData1.reduxState ? 'YES' : 'no'}`);
+  console.log(`JSON-LD: ${pageData1.jsonLd.length} items`);
+  console.log(`Meta tags: ${Object.keys(pageData1.metaTags).length}`);
+  console.log(`API requests captured so far: ${capturedRequests.length}`);
+
+  // Save session
+  ensureReportDir();
+  const sessionState = await context.storageState();
+  fs.writeFileSync(sessionPath, JSON.stringify(sessionState, null, 2));
+  console.log('Session saved.\n');
+
+  // ── Step 3: Let user navigate to another page ─────────────────────────
+  console.log('==========================================================');
+  console.log('  Now navigate to a DIFFERENT property page in the browser');
+  console.log('  (or a suburb/search page) then click RESUME again.');
+  console.log('  This helps us compare data across multiple pages.');
+  console.log('==========================================================\n');
+
+  await page.pause();
+
+  // Capture second page
+  console.log(`\nResumed! Current URL: ${page.url()}`);
+  const pageData2 = await extractPageData(page);
+  pageDataCaptures.push(pageData2);
+
+  console.log(`Page 2 __NEXT_DATA__: ${pageData2.nextData ? 'YES' : 'no'}`);
+  console.log(`Page 2 JSON-LD: ${pageData2.jsonLd.length} items`);
+  console.log(`Total API requests captured: ${capturedRequests.length}`);
+
+  // ── Step 4: Optional third page ───────────────────────────────────────
+  console.log('\n==========================================================');
+  console.log('  Optional: navigate to one more page (search results,');
+  console.log('  suburb profile, etc.) then click RESUME.');
+  console.log('  Or just click RESUME to finish and generate the report.');
+  console.log('==========================================================\n');
+
+  await page.pause();
+
+  // Capture if URL changed
+  const page3Url = page.url();
+  if (page3Url !== pageData2.url) {
+    console.log(`\nCapturing page 3: ${page3Url}`);
+    const pageData3 = await extractPageData(page);
+    pageDataCaptures.push(pageData3);
   }
 
-  // Save session after successful auth
-  ensureReportDir();
-  const state = await context.storageState();
-  fs.writeFileSync(sessionPath, JSON.stringify(state, null, 2));
-  console.log('  Session state saved.');
+  // ── Step 5: Generate report ───────────────────────────────────────────
+  console.log('\n\nGenerating discovery report...');
 
-  // Start interactive REPL
-  await startRepl(page, context);
+  // Save final session state
+  const finalState = await context.storageState();
+  fs.writeFileSync(sessionPath, JSON.stringify(finalState, null, 2));
+
+  const authInfo = await captureAuthInfo(context, page);
+  const report = generateReport(authInfo);
+  saveReport(report);
+
+  // Print summary
+  console.log('\n=== DISCOVERY SUMMARY ===');
+  console.log(`Tech stack: ${techStack.framework}`);
+  console.log(`Total API requests captured: ${capturedRequests.length}`);
+  console.log(`Unique API endpoints: ${report.apiEndpoints.length}`);
+  console.log(`Pages analyzed: ${pageDataCaptures.length}`);
+  console.log(`Cookies: ${authInfo.cookies.length}`);
+  console.log(`localStorage keys: ${authInfo.localStorageKeys.length}`);
+  console.log(`Auth header pattern: ${authInfo.authHeaderPattern || 'none detected'}`);
+  console.log('');
+
+  if (report.apiEndpoints.length > 0) {
+    console.log('API Endpoints found:');
+    for (const ep of report.apiEndpoints) {
+      console.log(`  ${ep.method} ${ep.urlPattern} (x${ep.count})`);
+    }
+    console.log('');
+  }
 
   // Cleanup
   await browser.close();
-  console.log('\nBrowser closed. Discovery complete.');
+  console.log('Browser closed. Discovery complete.');
+  console.log(`Reports saved to: ${REPORT_DIR}/`);
 }
 
 main().catch((err) => {

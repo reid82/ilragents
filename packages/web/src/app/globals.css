@@ -18,3 +18,21 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Prevent markdown tables from overflowing on mobile */
+.prose table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent code blocks from overflowing */
+.prose pre {
+  overflow-x: auto;
+}
+
+/* Word break for long URLs and strings in prose */
+.prose {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}

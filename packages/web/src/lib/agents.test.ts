@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { AGENTS, getAgentById, getAdvisors, getFacilitator } from './agents';
 
 describe('agents', () => {
-  it('has 4 agents defined', () => {
-    expect(AGENTS).toHaveLength(4);
+  it('has 6 agents defined', () => {
+    expect(AGENTS).toHaveLength(6);
   });
 
   it('getAgentById returns correct agent', () => {
@@ -16,10 +16,10 @@ describe('agents', () => {
     expect(getAgentById('nonexistent')).toBeUndefined();
   });
 
-  it('getAdvisors returns non-facilitator agents', () => {
+  it('getAdvisors returns non-facilitator, non-hidden agents', () => {
     const advisors = getAdvisors();
-    expect(advisors).toHaveLength(3);
-    expect(advisors.every((a) => !a.isFacilitator)).toBe(true);
+    expect(advisors).toHaveLength(4);
+    expect(advisors.every((a) => !a.isFacilitator && !a.hidden)).toBe(true);
   });
 
   it('getFacilitator returns Baseline Ben', () => {

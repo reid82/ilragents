@@ -293,28 +293,27 @@ ${name}`;
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
       {/* Header */}
-      <header className="border-b border-zinc-800 px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 sm:gap-4">
-        {showBackLink && (
-          <Link
-            href="/"
-            className="text-zinc-400 hover:text-white transition-colors"
-          >
-            &larr; Back
-          </Link>
-        )}
-        <div className="flex items-center gap-3 flex-1">
+      <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {showBackLink && (
+            <Link
+              href="/"
+              className="text-zinc-400 hover:text-white transition-colors shrink-0"
+            >
+              &larr;
+            </Link>
+          )}
           <AgentAvatar agent={agent} size="sm" />
-          <div>
-            <h1 className="font-semibold text-lg">{agent.name}</h1>
-            <p className="text-zinc-400 text-sm">{agent.domain}</p>
+          <div className="min-w-0">
+            <h1 className="font-semibold text-base sm:text-lg truncate">{agent.name}</h1>
+            <p className="text-zinc-400 text-xs sm:text-sm truncate">{agent.domain}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-zinc-400 text-sm">Format:</label>
+        <div className="flex items-center gap-2 shrink-0">
           <select
             value={format}
             onChange={(e) => setFormat(e.target.value as ResponseFormat)}
-            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500"
           >
             <option value="concise">Concise</option>
             <option value="standard">Standard</option>
@@ -323,13 +322,13 @@ ${name}`;
           <button
             disabled
             title="Coming Soon"
-            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-500 cursor-not-allowed opacity-50"
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-zinc-500 cursor-not-allowed opacity-50"
           >
             Voice
           </button>
           <button
             onClick={() => clearChat(agentSlug)}
-            className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-400 hover:text-red-400 hover:bg-zinc-700 transition-colors"
+            className="bg-zinc-800 border border-zinc-700 rounded-md px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-zinc-400 hover:text-red-400 hover:bg-zinc-700 transition-colors"
           >
             Clear
           </button>
@@ -337,7 +336,7 @@ ${name}`;
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-4 sm:space-y-6">
         {messages.length === 0 && (
           <div className="text-center text-zinc-500 mt-20">
             <AgentAvatar agent={agent} size="lg" className="mx-auto mb-4" />
@@ -369,14 +368,14 @@ ${name}`;
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
+                  className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-3 sm:px-5 py-3 overflow-hidden ${
                     msg.role === "user"
                       ? "bg-red-600 text-white"
                       : "bg-zinc-800/80 text-zinc-100"
                   }`}
                 >
                   {msg.role === "assistant" ? (
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-table:border-collapse prose-th:border prose-th:border-zinc-700 prose-th:bg-zinc-800 prose-th:px-3 prose-th:py-1.5 prose-td:border prose-td:border-zinc-700 prose-td:px-3 prose-td:py-1.5">
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-table:border-collapse prose-th:border prose-th:border-zinc-700 prose-th:bg-zinc-800 prose-th:px-2 prose-th:py-1 sm:prose-th:px-3 sm:prose-th:py-1.5 prose-td:border prose-td:border-zinc-700 prose-td:px-2 prose-td:py-1 sm:prose-td:px-3 sm:prose-td:py-1.5 prose-th:text-xs prose-td:text-xs sm:prose-th:text-sm sm:prose-td:text-sm">
                       {displayContent && !(isLastAssistant && !streamingText && statusMessage) ? (
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
                       ) : isLastAssistant && statusMessage ? (
@@ -469,8 +468,8 @@ ${name}`;
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-800 px-6 py-4 pb-12">
-        <p className="text-[11px] text-zinc-500 text-center mb-2 max-w-2xl mx-auto">
+      <div className="border-t border-zinc-800 px-3 sm:px-6 py-3 sm:py-4 pb-14 sm:pb-12">
+        <p className="text-[11px] text-zinc-500 text-center mb-2 max-w-2xl mx-auto hidden sm:block">
           Thanks for testing! Please use the feedback button on any response to help us improve.
         </p>
         <form
@@ -478,7 +477,7 @@ ${name}`;
             e.preventDefault();
             handleSend();
           }}
-          className="flex gap-3 max-w-4xl mx-auto"
+          className="flex gap-2 sm:gap-3 max-w-4xl mx-auto"
         >
           <input
             ref={inputRef}
@@ -486,13 +485,13 @@ ${name}`;
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={`Ask ${agent.name}...`}
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
             autoFocus
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-medium transition-colors"
           >
             {isLoading ? "..." : "Send"}
           </button>

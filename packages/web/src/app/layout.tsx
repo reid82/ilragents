@@ -30,7 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* Pre-production banner */}
-        <div className="fixed bottom-6 right-0 z-[60] overflow-hidden pointer-events-none" style={{ width: 150, height: 150 }}>
+        <div className="hidden sm:block fixed bottom-6 right-0 z-[60] overflow-hidden pointer-events-none" style={{ width: 150, height: 150 }}>
           <div
             className="absolute bg-amber-500 text-black text-xs font-bold text-center py-1"
             style={{
@@ -46,11 +46,11 @@ export default function RootLayout({
         </div>
         <AuthProvider>{children}</AuthProvider>
         {/* Site-wide disclaimer */}
-        <div className="fixed bottom-0 inset-x-0 z-50 bg-zinc-900/95 border-t border-zinc-700 px-4 py-2 text-center">
-          <p className="text-[11px] text-zinc-500 leading-snug max-w-3xl mx-auto">
-            This application is in early development and is not ready for production use.
-            All responses are AI-generated and may contain errors. Nothing here constitutes financial,
-            legal, or investment advice. Always consult qualified professionals before making investment decisions.
+        <div className="fixed bottom-0 inset-x-0 z-50 bg-zinc-900/95 border-t border-zinc-700 px-3 sm:px-4 py-1.5 sm:py-2 text-center">
+          <p className="text-[10px] sm:text-[11px] text-zinc-500 leading-snug max-w-3xl mx-auto">
+            Early development - not for production use.
+            AI-generated responses may contain errors. Not financial, legal, or investment advice.
+            <span className="hidden sm:inline"> Always consult qualified professionals before making investment decisions.</span>
           </p>
         </div>
       </body>

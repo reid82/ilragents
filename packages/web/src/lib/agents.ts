@@ -8,6 +8,7 @@ export interface AgentDef {
   ragAgents: string[];
   contextLimit: number;
   isFacilitator?: boolean;
+  hidden?: boolean;
 }
 
 export const AGENTS: AgentDef[] = [
@@ -89,6 +90,7 @@ export const AGENTS: AgentDef[] = [
       "https://api.dicebear.com/9.x/adventurer/svg?seed=FISOPhil&backgroundColor=EF4444&skinColor=ecad80",
     ragAgents: ["Foundation Frank", "Yield Yates", "ILR Methodology"],
     contextLimit: 15,
+    hidden: true,
   },
 ];
 
@@ -97,7 +99,7 @@ export function getAgentById(id: string): AgentDef | undefined {
 }
 
 export function getAdvisors(): AgentDef[] {
-  return AGENTS.filter((a) => !a.isFacilitator);
+  return AGENTS.filter((a) => !a.isFacilitator && !a.hidden);
 }
 
 export function getFacilitator(): AgentDef {

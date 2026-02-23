@@ -42,7 +42,7 @@ export default function ChatPage({
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-dvh flex flex-col">
       <ChatPanel agentSlug={agentSlug} agent={agent} showBackLink initialPrompt={initialPrompt} />
     </div>
   );

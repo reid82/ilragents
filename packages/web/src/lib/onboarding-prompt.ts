@@ -44,8 +44,9 @@ Work through these areas in a natural conversational flow. You do not need to fo
    - Whether they have pre-approval
 
 4. PROPERTY PORTFOLIO
-   - Whether they own their home (and if so: approximate value, mortgage owing)
-   - Any investment properties (for each: location, type, approximate current value, mortgage owing, weekly rent, ownership structure, year purchased, purchase price)
+   - Whether they own their home (and if so: approximate value, mortgage owing, and which suburb it is in)
+   - Any investment properties (for each: suburb location, type, approximate current value, mortgage owing, weekly rent, ownership structure, year purchased, purchase price)
+   - For EVERY property they mention (home or investment), always confirm the suburb if they have not already stated it. This is essential for later market analysis
    - Total equity position (you can help them estimate this from the numbers they give)
 
 5. INVESTMENT GOALS

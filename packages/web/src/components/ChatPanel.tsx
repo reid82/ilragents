@@ -72,6 +72,9 @@ function buildFinancialContext(
   }
 
   if (roadmapData) {
+    const netYield = roadmapData.keyMetrics.currentNetYield
+      ? `, Current net yield ${roadmapData.keyMetrics.currentNetYield}%`
+      : '';
     context += `\n\nROADMAP SUMMARY:
 Strategy: ${roadmapData.strategyType}
 ILR Phase: ${roadmapData.recommendedPhase}
@@ -79,8 +82,13 @@ Investor Score: ${roadmapData.investorScore}/100
 Deal Criteria: $${roadmapData.dealCriteria.priceRange.min.toLocaleString()}-$${roadmapData.dealCriteria.priceRange.max.toLocaleString()}, targeting ${roadmapData.dealCriteria.targetYield}% yield
 Target Areas: ${roadmapData.dealCriteria.locations.join(', ')}
 Property Types: ${roadmapData.dealCriteria.propertyTypes.join(', ')}
-Key Metrics: Accessible equity $${roadmapData.keyMetrics.accessibleEquity.toLocaleString()}, Borrowing capacity $${roadmapData.keyMetrics.borrowingCapacity.toLocaleString()}, Max purchase $${roadmapData.keyMetrics.maxPurchasePrice.toLocaleString()}
-Top Priorities: ${roadmapData.topPriorities.join('; ')}`;
+Key Metrics: Accessible equity $${roadmapData.keyMetrics.accessibleEquity.toLocaleString()}, Borrowing capacity $${roadmapData.keyMetrics.borrowingCapacity.toLocaleString()}, Max purchase $${roadmapData.keyMetrics.maxPurchasePrice.toLocaleString()}${netYield}
+Projections:
+  Year 1: ${roadmapData.projections.year1.properties} properties, $${roadmapData.projections.year1.equity.toLocaleString()} equity, $${roadmapData.projections.year1.cashflow.toLocaleString()}/yr cashflow
+  Year 3: ${roadmapData.projections.year3.properties} properties, $${roadmapData.projections.year3.equity.toLocaleString()} equity, $${roadmapData.projections.year3.cashflow.toLocaleString()}/yr cashflow
+  Year 5: ${roadmapData.projections.year5.properties} properties, $${roadmapData.projections.year5.equity.toLocaleString()} equity, $${roadmapData.projections.year5.cashflow.toLocaleString()}/yr cashflow
+Top Priorities: ${roadmapData.topPriorities.join('; ')}
+IMPORTANT: These roadmap numbers are commitments made to the client. Always reference them consistently when discussing projections, strategy, or goals.`;
   }
 
   return context;

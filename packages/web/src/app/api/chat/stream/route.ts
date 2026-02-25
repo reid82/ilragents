@@ -87,19 +87,71 @@ export async function POST(req: NextRequest) {
 
 
         if (detected) {
-          // URL found: scrape via Bright Data -> Cheerio fallback, then enrich
+          // URL found: scrape listing AND try HPF lookup in parallel for richer data
           const basePrompt = await getBasePrompt();
           try {
             const { scrapeListingByUrl } = await import("@ilre/pipeline/listing-lookup");
-            const listing = await scrapeListingByUrl(detected.url, detected.source, (status: string) => {
+            const { extractAddressFromUrl, extractAddressFromListing, formatAddressForSearch } = await import("@ilre/pipeline/listing-types");
+
+            // Step 1: Try to extract address directly from the URL slug
+            const urlAddress = extractAddressFromUrl(detected.url, detected.source);
+            const hasFullAddress = urlAddress && urlAddress.streetNumber && urlAddress.streetName;
+
+            // Step 2: Scrape the listing page (always needed for listing details)
+            // If we already have a full address from the URL, also start HPF in parallel
+            const scrapePromise = scrapeListingByUrl(detected.url, detected.source, (status: string) => {
               sendEvent({ type: "status", message: status });
             });
 
+            let hpfPromise: Promise<import("@ilre/pipeline/intelligence").HpfResult | null> | null = null;
+
+            if (hasFullAddress && process.env.HPF_SERVICE_URL) {
+              const { isHpfHealthy, lookupViaHpf } = await import("@ilre/pipeline/intelligence");
+              sendEvent({ type: "status", message: "Checking Hot Property Finder..." });
+              const healthy = await isHpfHealthy();
+              if (healthy) {
+                const addrString = formatAddressForSearch(urlAddress);
+                hpfPromise = lookupViaHpf(addrString, urlAddress.suburb, urlAddress.state || '', urlAddress.postcode || '');
+              }
+            }
+
+            // Wait for scrape (and HPF if running)
+            const [listing, hpfResult] = await Promise.all([
+              scrapePromise,
+              hpfPromise,
+            ]);
+
+            // Step 3: If we didn't have a full address from the URL, extract it from the scraped listing
+            // and try HPF with that
+            let finalHpfResult = hpfResult;
+            if (!finalHpfResult?.listing && !hasFullAddress && listing.address && process.env.HPF_SERVICE_URL) {
+              const scrapedAddress = extractAddressFromListing(listing);
+              if (scrapedAddress && scrapedAddress.streetNumber && scrapedAddress.streetName) {
+                try {
+                  const { isHpfHealthy, lookupViaHpf } = await import("@ilre/pipeline/intelligence");
+                  sendEvent({ type: "status", message: "Looking up in Hot Property Finder..." });
+                  const healthy = await isHpfHealthy();
+                  if (healthy) {
+                    const addrString = formatAddressForSearch(scrapedAddress);
+                    finalHpfResult = await lookupViaHpf(addrString, scrapedAddress.suburb, scrapedAddress.state || '', scrapedAddress.postcode || '');
+                  }
+                } catch (hpfErr) {
+                  console.log(`[stream] HPF lookup from scraped address failed (non-fatal): ${hpfErr instanceof Error ? hpfErr.message : hpfErr}`);
+                }
+              }
+            }
+
+            // Step 4: Merge - HPF data takes priority for valuation/neighbours/planning,
+            // URL scrape fills listing-specific fields like photos, agent, description
+            const mergedListing = finalHpfResult?.listing
+              ? { ...listing, ...finalHpfResult.listing, url: listing.url || finalHpfResult.listing.url, description: listing.description || finalHpfResult.listing.description, images: listing.images.length > 0 ? listing.images : finalHpfResult.listing.images, agentName: listing.agentName || finalHpfResult.listing.agentName, agencyName: listing.agencyName || finalHpfResult.listing.agencyName }
+              : listing;
+
             const { buildListingDataBlock } = await import("@/lib/deal-analyser-prompt");
             const intelligenceBlock = await enrichIntelligence(
-              listing.suburb || '', listing.state || '', listing.postcode || '', listing.address || ''
+              mergedListing.suburb || '', mergedListing.state || '', mergedListing.postcode || '', mergedListing.address || ''
             );
-            systemPromptOverride = basePrompt + "\n\n" + buildListingDataBlock(listing) + (intelligenceBlock ? "\n\n" + intelligenceBlock : '');
+            systemPromptOverride = basePrompt + "\n\n" + buildListingDataBlock(mergedListing) + (intelligenceBlock ? "\n\n" + intelligenceBlock : '');
           } catch (scrapeError) {
             console.error("Listing scrape failed:", scrapeError);
             systemPromptOverride = basePrompt;

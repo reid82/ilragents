@@ -8,7 +8,7 @@ config({ path: path.resolve(process.cwd(), "../../.env") });
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { query, agent, history = [], responseFormat, financialContext, mode } = body;
+  const { query, agent, history = [], responseFormat, financialContext, mode, conversationId } = body;
 
   if (!query || !agent) {
     return new Response(JSON.stringify({ error: "query and agent are required" }), {
@@ -16,10 +16,6 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   }
-
-  // For deal analysis agents, start streaming immediately so we can send
-  // real-time status updates during property lookup
-  const isDealAgent = agent === "Deal Analyser Dan" || agent === "FISO Phil";
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
@@ -34,9 +30,11 @@ export async function POST(req: NextRequest) {
     try {
       // Look up persona override from Supabase (non-fatal)
       let systemPromptOverride: string | undefined;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let supabase: any;
       try {
         const { getSupabaseClient } = await import("@/lib/supabase");
-        const supabase = getSupabaseClient();
+        supabase = getSupabaseClient();
         const { data } = await supabase
           .from("agent_personas")
           .select("system_prompt_override")
@@ -55,14 +53,18 @@ export async function POST(req: NextRequest) {
         systemPromptOverride = ONBOARDING_SYSTEM_PROMPT;
       }
 
-      // Deal analysis agents: detect listing URLs and scrape, use custom prompts
-      if (isDealAgent) {
-        const { detectListingUrl } = await import("@ilre/pipeline/listing-types");
-        const detected = detectListingUrl(query);
+      // Detect listing URLs in the query - runs for any agent
+      const { detectListingUrl } = await import("@ilre/pipeline/listing-types");
+      const detected = detectListingUrl(query);
 
-        const isPhil = agent === "FISO Phil";
+      // Keyword detection for FISO/feasibility intent
+      const isFiso = /\b(run the numbers|feasibility|fiso|cashflow analysis)\b/i.test(query);
+
+      // Deal analysis block: trigger on URL detection for any agent,
+      // or always attempt address lookup for non-onboarding queries
+      if (mode !== "onboarding") {
         const getBasePrompt = async () => {
-          if (isPhil) {
+          if (isFiso) {
             const { FISO_PHIL_SYSTEM_PROMPT } = await import("@/lib/fiso-phil-prompt");
             return FISO_PHIL_SYSTEM_PROMPT;
           }
@@ -84,7 +86,6 @@ export async function POST(req: NextRequest) {
             return '';
           }
         };
-
 
         if (detected) {
           // URL found: scrape listing AND try HPF lookup in parallel for richer data
@@ -197,9 +198,12 @@ export async function POST(req: NextRequest) {
 
       const { chatStream } = await import("@ilre/pipeline/chat");
 
-      // Look up agent-specific context limit (0 in onboarding to skip RAG)
-      const agentDef = AGENTS.find((a) => a.name === agent);
-      const contextLimit = mode === "onboarding" ? 0 : agentDef?.contextLimit;
+      // Unified advisor uses a broader context limit since it searches all RAG sources
+      const contextLimit = mode === "onboarding"
+        ? 0
+        : agent === "ILR Property Advisor"
+          ? 25
+          : AGENTS.find((a) => a.name === agent)?.contextLimit;
 
       sendEvent({ type: "status", message: "" }); // Clear status before LLM response
 
@@ -212,26 +216,68 @@ export async function POST(req: NextRequest) {
       });
 
       // Send sources
+      const sourcesPayload = sources.map((s) => ({
+        title: s.chunk.metadata.title,
+        score: s.score,
+        contentType: s.chunk.metadata.contentType,
+        agent: s.chunk.metadata.agent,
+      }));
       sendEvent({
         type: "sources",
-        sources: sources.map((s) => ({
-          title: s.chunk.metadata.title,
-          score: s.score,
-          contentType: s.chunk.metadata.contentType,
-          agent: s.chunk.metadata.agent,
-        })),
+        sources: sourcesPayload,
       });
 
       // Stream text chunks
       const reader = textStream.getReader();
+      const textChunks: string[] = [];
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        textChunks.push(value);
         sendEvent({ type: "text", text: value });
       }
 
       // Signal completion
       sendEvent({ type: "done" });
+
+      // Persist messages if a conversationId was provided
+      if (conversationId && supabase) {
+        try {
+          const assistantText = textChunks.join("");
+
+          // Save user message
+          await supabase.from("conversation_messages").insert({
+            conversation_id: conversationId,
+            role: "user",
+            content: query,
+          });
+
+          // Save assistant message (with sources and referrals)
+          await supabase.from("conversation_messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: assistantText,
+            metadata: { sources: sourcesPayload },
+          });
+
+          // Auto-title the conversation if it still has the default title
+          const { data: convo } = await supabase
+            .from("conversations")
+            .select("title")
+            .eq("id", conversationId)
+            .single();
+
+          if (convo?.title === "New conversation") {
+            const autoTitle = query.length > 60 ? query.slice(0, 60) + "..." : query;
+            await supabase
+              .from("conversations")
+              .update({ title: autoTitle })
+              .eq("id", conversationId);
+          }
+        } catch (persistError) {
+          console.error("Failed to persist conversation messages:", persistError);
+        }
+      }
     } catch (error) {
       console.error("Stream error:", error);
       sendEvent({ type: "error", error: error instanceof Error ? error.message : "Stream failed" });

@@ -1,12 +1,10 @@
 import type { ListingData, ParsedAddress } from './listing-types';
 import { formatAddressForSearch, LISTING_DETAIL_DEFAULTS } from './listing-types';
 import { extractAddressFromMessage } from './address-extractor';
-import { enrichListingDetail } from '../intelligence/apify-listing-detail';
 import type { SerperLookupResult } from '../intelligence/serper-lookup';
 
 /** Minimum number of non-null data fields to consider a scrape "rich enough" */
 const MIN_RICH_FIELDS = 3;
-import type { PageExtractor } from '../intelligence/bright-data-scraper';
 
 export interface LookupResult {
   status: 'found' | 'not-found' | 'no-address';
@@ -17,17 +15,6 @@ export interface LookupResult {
 }
 
 export type ProgressCallback = (message: string) => void;
-
-/** Enrich a listing with detail actor data (non-fatal) */
-async function tryEnrich(listing: ListingData): Promise<ListingData> {
-  if (!listing.url || listing.description.length > 200) return listing;
-  try {
-    return await enrichListingDetail(listing);
-  } catch (err) {
-    console.error('[listing-lookup] Detail enrichment failed (non-fatal):', err instanceof Error ? err.message : err);
-    return listing;
-  }
-}
 
 /**
  * Build a ListingData from SerpAPI search result data (snippet + title).
@@ -136,29 +123,6 @@ function serperSourceToLookupSource(source: 'domain' | 'rea' | 'onthehouse' | nu
   return 'serper-rea';
 }
 
-/** Get the appropriate Playwright page extractor for a source */
-async function getExtractorForSource(source: 'domain' | 'rea' | 'onthehouse'): Promise<PageExtractor> {
-  if (source === 'onthehouse') {
-    const { extractOnthehousePage } = await import('../intelligence/onthehouse-extractor');
-    return extractOnthehousePage;
-  }
-  const { extractGenericPage } = await import('../intelligence/bright-data-scraper');
-  return extractGenericPage;
-}
-
-/** Get the appropriate merge function for a source */
-async function getMergerForSource(source: 'domain' | 'rea' | 'onthehouse'): Promise<(listing: ListingData, raw: Record<string, unknown>) => ListingData> {
-  if (source === 'onthehouse') {
-    const { mergeOnthehouseDetail } = await import('../intelligence/onthehouse-extractor');
-    return mergeOnthehouseDetail;
-  }
-  if (source === 'domain') {
-    const { mergeDomainDetail } = await import('../intelligence/apify-listing-detail');
-    return mergeDomainDetail;
-  }
-  const { mergeReaDetail } = await import('../intelligence/apify-listing-detail');
-  return mergeReaDetail;
-}
 
 /** Count how many key data fields a listing has populated */
 function countRichFields(listing: ListingData): number {
@@ -173,43 +137,6 @@ function countRichFields(listing: ListingData): number {
   if (listing.agentName) count++;
   if (listing.propertyHistory && listing.propertyHistory.length > 0) count++;
   return count;
-}
-
-/** Try scraping a URL via Bright Data, then Cheerio, returning the listing or null */
-async function tryScrape(
-  url: string,
-  serperResult: SerperLookupResult,
-  address: ParsedAddress,
-): Promise<ListingData | null> {
-  const source = serperResult.source;
-
-  // Step A: Try Bright Data Scraping Browser (if configured)
-  try {
-    const { scrapeWithBrightData } = await import('../intelligence/bright-data-scraper');
-    const extractor = await getExtractorForSource(source);
-    const raw = await scrapeWithBrightData(url, extractor);
-
-    if (raw && Object.keys(raw).length > 0) {
-      const listing = buildListingFromSnippet(serperResult, address);
-      const merger = await getMergerForSource(source);
-      return merger(listing, raw);
-    }
-  } catch (err) {
-    console.log(`[listing-lookup] Bright Data scrape failed: ${err instanceof Error ? err.message : 'unknown'}`);
-  }
-
-  // Step B: Try Cheerio scrape (fast, may be blocked, doesn't work for OTH)
-  if (source !== 'onthehouse') {
-    try {
-      const { scrapeListing } = await import('./listing-scraper');
-      console.log(`[listing-lookup] Cheerio scraping: ${url}`);
-      return await scrapeListing(url);
-    } catch (scrapeErr) {
-      console.log(`[listing-lookup] Cheerio scrape failed: ${scrapeErr instanceof Error ? scrapeErr.message : 'unknown'}`);
-    }
-  }
-
-  return null;
 }
 
 /** Check if a Domain API search result's address matches the target */
@@ -235,7 +162,7 @@ function domainApiAddressMatches(
 /**
  * Scrape a listing directly from a known URL (no SERP search needed).
  *
- * Tries Bright Data first, then Cheerio fallback. Enriches via Apify if possible.
+ * Tries Cheerio scrape, then falls back to a minimal shell.
  * Use this when the user provides a direct listing URL instead of an address.
  */
 export async function scrapeListingByUrl(
@@ -245,55 +172,31 @@ export async function scrapeListingByUrl(
 ): Promise<ListingData> {
   const progress = onProgress || (() => {});
 
-  // Step 1: Try Bright Data scraping (handles anti-bot, JS rendering, OnTheHouse)
-  try {
-    progress('Researching that property online...');
-    const { scrapeWithBrightData } = await import('../intelligence/bright-data-scraper');
-    const extractor = await getExtractorForSource(source);
-    const raw = await scrapeWithBrightData(url, extractor);
-
-    if (raw && Object.keys(raw).length > 0) {
-      // Build a minimal listing shell, then merge scraped data
-      const merger = await getMergerForSource(source);
-      const shell: ListingData = {
-        source, url, address: '', suburb: '', state: '', postcode: '',
-        propertyType: 'unknown', bedrooms: null, bathrooms: null, parking: null,
-        landSize: null, buildingSize: null, price: null, priceGuide: null,
-        listingType: 'unknown', auctionDate: null, daysOnMarket: null,
-        description: '', features: [], images: [],
-        agentName: null, agencyName: null,
-        suburbMedianPrice: null, suburbMedianRent: null,
-        suburbDaysOnMarket: null, suburbAuctionClearance: null,
-        ...LISTING_DETAIL_DEFAULTS, rawData: {},
-      };
-      const listing = merger(shell, raw);
-      const richness = countRichFields(listing);
-      console.log(`[listing-lookup] Bright Data URL scrape: ${richness} rich fields`);
-
-      if (richness >= MIN_RICH_FIELDS) {
-        progress('Enriching property data...');
-        return await tryEnrich(listing);
-      }
-    }
-  } catch (err) {
-    console.log(`[listing-lookup] Bright Data URL scrape failed: ${err instanceof Error ? err.message : 'unknown'}`);
-  }
-
-  // Step 2: Cheerio fallback (Domain/REA only - OTH needs JS rendering)
+  // Try Cheerio scrape (Domain/REA only - OTH needs JS rendering)
   if (source !== 'onthehouse') {
     try {
       progress('Fetching listing details...');
       const { scrapeListing } = await import('./listing-scraper');
       console.log(`[listing-lookup] Cheerio scraping URL: ${url}`);
-      const listing = await scrapeListing(url);
-      progress('Enriching property data...');
-      return await tryEnrich(listing);
+      return await scrapeListing(url);
     } catch (scrapeErr) {
       console.log(`[listing-lookup] Cheerio URL scrape failed: ${scrapeErr instanceof Error ? scrapeErr.message : 'unknown'}`);
     }
   }
 
-  throw new Error(`Failed to scrape listing from ${url}`);
+  // Return a minimal shell - HPF in the route handler will fill in the data
+  console.log(`[listing-lookup] Returning minimal shell for: ${url}`);
+  return {
+    source, url, address: '', suburb: '', state: '', postcode: '',
+    propertyType: 'unknown', bedrooms: null, bathrooms: null, parking: null,
+    landSize: null, buildingSize: null, price: null, priceGuide: null,
+    listingType: 'unknown', auctionDate: null, daysOnMarket: null,
+    description: '', features: [], images: [],
+    agentName: null, agencyName: null,
+    suburbMedianPrice: null, suburbMedianRent: null,
+    suburbDaysOnMarket: null, suburbAuctionClearance: null,
+    ...LISTING_DETAIL_DEFAULTS, rawData: {},
+  };
 }
 
 /**
@@ -302,10 +205,8 @@ export async function scrapeListingByUrl(
  * Flow:
  * 0. HPF service (if configured and healthy) - single source for all data
  * 1. Extract address from message via LLM
- * 2. SerpAPI: search all three sites in parallel (REA, Domain, OTH)
- * 3. Try each source in richness order: scrape via Bright Data -> Cheerio -> snippet
- *    If the first source is thin (<3 rich fields), try the next source
- * 4. Fallback: Domain API search (if configured)
+ * 2. SerpAPI: search all three sites, build listing from snippet data
+ * 3. Fallback: Domain API search (if configured)
  */
 export async function lookupListingByAddress(
   message: string,
@@ -367,62 +268,27 @@ export async function lookupListingByAddress(
     const { findAllListingUrls } = await import('../intelligence/serper-lookup');
     const allResults = await findAllListingUrls(address);
 
-    // Step 3: Try each source in order (already sorted REA > Domain > OTH)
+    // Step 3: Build listings from snippets (no scraping), pick the richest
     let bestListing: ListingData | null = null;
     let bestSource: LookupResult['source'] | undefined;
     let bestRichness = -1;
 
-    const sourceLabels: Record<string, string> = {
-      rea: 'realestate.com.au',
-      domain: 'domain.com.au',
-      onthehouse: 'onthehouse.com.au',
-    };
-
     for (const serperResult of allResults) {
       const source = serperSourceToLookupSource(serperResult.source);
-      const label = sourceLabels[serperResult.source] || serperResult.source;
-      progress(`Checking ${label}...`);
-
-      // Try scraping this source
-      const scrapedListing = await tryScrape(serperResult.url, serperResult, address);
-
-      if (scrapedListing) {
-        const richness = countRichFields(scrapedListing);
-        console.log(`[listing-lookup] ${serperResult.source} scrape: ${richness} rich fields`);
-
-        if (richness >= MIN_RICH_FIELDS) {
-          // Good enough - enrich and return
-          progress('Enriching property data...');
-          const listing = await tryEnrich(scrapedListing);
-          return { status: 'found', listing, source, addressSearched: addressString, parsedAddress: address };
-        }
-
-        // Keep track of the best we've found so far
-        if (richness > bestRichness) {
-          bestListing = scrapedListing;
-          bestSource = source;
-          bestRichness = richness;
-        }
-        continue;
-      }
-
-      // Scraping failed entirely - build from snippet and score it
       const snippetListing = buildListingFromSnippet(serperResult, address);
-      const snippetRichness = countRichFields(snippetListing);
+      const richness = countRichFields(snippetListing);
 
-      if (snippetRichness > bestRichness) {
+      if (richness > bestRichness) {
         bestListing = snippetListing;
         bestSource = source;
-        bestRichness = snippetRichness;
+        bestRichness = richness;
       }
     }
 
-    // Return the best listing we found across all sources
+    // Return the best snippet listing we found
     if (bestListing) {
-      console.log(`[listing-lookup] Using best result (${bestSource}, ${bestRichness} rich fields)`);
-      progress('Enriching property data...');
-      const listing = await tryEnrich(bestListing);
-      return { status: 'found', listing, source: bestSource, addressSearched: addressString, parsedAddress: address };
+      console.log(`[listing-lookup] Using best snippet (${bestSource}, ${bestRichness} rich fields)`);
+      return { status: 'found', listing: bestListing, source: bestSource, addressSearched: addressString, parsedAddress: address };
     }
   } catch (err) {
     console.error('[listing-lookup] Serper lookup failed:', err instanceof Error ? err.message : err);
@@ -444,9 +310,7 @@ export async function lookupListingByAddress(
         const match = results.find(r => domainApiAddressMatches(r, address));
         if (match) {
           console.log('[listing-lookup] Found match via Domain API:', match.listing?.propertyDetails?.displayableAddress);
-          progress('Enriching property data...');
-          let listing = mapDomainSearchResultToListing(match);
-          listing = await tryEnrich(listing);
+          const listing = mapDomainSearchResultToListing(match);
           return { status: 'found', listing, source: 'domain-api', addressSearched: addressString, parsedAddress: address };
         }
         console.log(`[listing-lookup] Domain API returned ${results.length} listings but none matched address`);

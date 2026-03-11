@@ -1,14 +1,8 @@
 export { enrichPropertyIntelligence } from './orchestrator';
 export { IntelligenceCache } from './cache';
-export { ApifyClient } from './apify-client';
-export { getSuburbProfile } from './suburb-scraper';
 export { getAbsDemographics } from './abs-demographics';
 export type { AbsDemographics } from './abs-demographics';
 export { getZoningData } from './zoning-lookup';
-export { getVacancyRate } from './vacancy-scraper';
-export { getNeighbourhoodSentiment } from './sentiment-scraper';
-export { searchListingViaApify } from './apify-listing-lookup';
-export { enrichListingDetail } from './apify-listing-detail';
 export { findListingUrlViaSerper } from './serper-lookup';
 export { isHpfHealthy, lookupViaHpf, getSuburbViaHpf } from './hpf-client';
 export type { HpfResult } from './hpf-client';

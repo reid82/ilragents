@@ -1,9 +1,6 @@
-import type { SuburbContext, ZoningData, NeighbourhoodSentiment, PropertyIntelligence } from '../extractors/listing-types';
-import { getSuburbProfile } from './suburb-scraper';
+import type { SuburbContext, ZoningData, PropertyIntelligence } from '../extractors/listing-types';
 import { getAbsDemographics } from './abs-demographics';
 import { getZoningData } from './zoning-lookup';
-import { getVacancyRate } from './vacancy-scraper';
-import { getNeighbourhoodSentiment } from './sentiment-scraper';
 
 interface EnrichmentInput {
   address?: string;
@@ -53,26 +50,18 @@ export async function enrichPropertyIntelligence(
   const { address, suburb, state, postcode } = input;
   const errors: string[] = [];
 
-  const [suburbResult, absResult, zoningResult, vacancyResult, sentimentResult] = await Promise.allSettled([
-    getSuburbProfile(suburb, state, postcode),
+  const [absResult, zoningResult] = await Promise.allSettled([
     getAbsDemographics(suburb, state, postcode),
     address ? getZoningData(address, suburb, state) : Promise.resolve(null),
-    getVacancyRate(postcode),
-    getNeighbourhoodSentiment(suburb, state),
   ]);
 
-  // Build suburb context from prefetched, suburb profile, or fallback to empty
+  // Build suburb context from prefetched or fallback to empty
   let suburbContext: SuburbContext;
   if (prefetched?.suburb) {
     suburbContext = prefetched.suburb;
     suburbContext.dataSources.push('hpf');
-  } else if (suburbResult.status === 'fulfilled' && suburbResult.value) {
-    suburbContext = suburbResult.value;
   } else {
     suburbContext = emptySuburbContext(suburb, state, postcode);
-    if (suburbResult.status === 'rejected') {
-      errors.push(`Suburb profile: ${suburbResult.reason}`);
-    }
   }
 
   // Merge ABS demographics into suburb context
@@ -93,28 +82,12 @@ export async function enrichPropertyIntelligence(
     errors.push(`Zoning: ${zoningResult.reason}`);
   }
 
-  // Apply vacancy rate to suburb context
-  if (vacancyResult.status === 'fulfilled' && vacancyResult.value !== null) {
-    suburbContext.vacancyRate = vacancyResult.value;
-    suburbContext.dataSources.push('sqm-research');
-  } else if (vacancyResult.status === 'rejected') {
-    errors.push(`Vacancy: ${vacancyResult.reason}`);
-  }
-
-  // Extract sentiment data
-  let sentiment: NeighbourhoodSentiment | null = null;
-  if (sentimentResult.status === 'fulfilled') {
-    sentiment = sentimentResult.value;
-  } else {
-    errors.push(`Sentiment: ${sentimentResult.reason}`);
-  }
-
   return {
     listing: null,
     suburb: suburbContext,
     zoning,
     nearbySchools: [],
-    sentiment,
+    sentiment: null,
     crimeRating: null,
     fetchedAt: new Date().toISOString(),
     errors,

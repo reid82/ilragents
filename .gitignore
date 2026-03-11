@@ -30,5 +30,8 @@ packages/pipeline/supabase/.temp/
 # Worktrees
 .worktrees/
 
+# Superpowers brainstorm sessions
+.superpowers/
+
 # OS files
 .DS_Store

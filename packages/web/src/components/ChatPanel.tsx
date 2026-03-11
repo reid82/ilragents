@@ -194,7 +194,9 @@ export default function ChatPanel({
 
             try {
               const event = JSON.parse(data);
-              if (event.type === "status") {
+              if (event.type === "error") {
+                throw new Error(event.error || "Something went wrong");
+              } else if (event.type === "status") {
                 setStatusMessage(event.message || null);
               } else if (event.type === "sources") {
                 setStatusMessage(null);

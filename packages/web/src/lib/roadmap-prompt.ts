@@ -258,7 +258,7 @@ SECTION REQUIREMENTS:
 - Non-negotiables vs nice-to-haves
 - Red flags to avoid (flood zones, mining towns, oversupply areas)
 - What a "great deal" looks like for them specifically - give a concrete example with numbers
-- How to use Finder Fred and Deal Analyser Dan in this platform to search and evaluate deals
+- How to use the ILR Property Advisor in this platform to search and evaluate deals
 
 ${STYLE_RULES}`,
 };
@@ -330,13 +330,12 @@ SECTION REQUIREMENTS:
   2. Then subsequent steps in logical order
   3. Each with a clear, specific deliverable
 - Create a "Next 90 Days" milestone list (3-4 items)
-- Explain how to use this platform going forward:
-  - Baseline Ben for strategy questions
-  - Finder Fred for property search
-  - Deal Analyser Dan for evaluating specific deals
-  - FISO Phil for running the numbers
-  - Finance & Legal Team for structure questions
-  - Investor Coach for portfolio management
+- Explain how to use the ILR Property Advisor going forward:
+  - Ask strategy questions about your investment journey
+  - Search for and evaluate property deals by pasting listing URLs
+  - Request feasibility analysis by asking to "run the numbers"
+  - Get guidance on finance structuring and asset protection
+  - Ask about portfolio management and growth strategies
 - End with an encouraging but realistic closing: acknowledge their position, reinforce that the plan is achievable, motivate them to take the first step
 
 ${STYLE_RULES}`,

@@ -30,7 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* Pre-production banner */}
-        <div className="hidden sm:block fixed bottom-6 right-0 z-[60] overflow-hidden pointer-events-none" style={{ width: 150, height: 150 }}>
+        <div className="hidden sm:block fixed bottom-12 right-0 z-[60] overflow-hidden pointer-events-none" style={{ width: 150, height: 150 }}>
           <div
             className="absolute bg-amber-500 text-black text-xs font-bold text-center py-1"
             style={{

@@ -6,10 +6,8 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 import { useSessionStore } from '@/lib/stores/session-store';
 import { useClientProfileStore } from '@/lib/stores/financial-store';
 
-async function loadProfileFromDB(accessToken: string) {
-  const res = await fetch('/api/user/profile', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+async function loadProfileFromDB() {
+  const res = await fetch('/api/user/profile');
   if (!res.ok) return null;
   const data = await res.json();
   return data.profile ?? null;
@@ -72,10 +70,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         const user = session?.user ?? null;
         setUser(user);
 
-        if (user && session?.access_token) {
+        if (user) {
           // Hydrate stores from DB for returning users
           setSessionId(user.id);
-          loadProfileFromDB(session.access_token).then((profile) => {
+          loadProfileFromDB().then((profile) => {
             if (profile) {
               setProfile(profile.structured_data);
               if (profile.raw_transcript) {
@@ -98,9 +96,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         const user = session?.user ?? null;
         setUser(user);
 
-        if (user && session?.access_token) {
+        if (user) {
           setSessionId(user.id);
-          const profile = await loadProfileFromDB(session.access_token);
+          const profile = await loadProfileFromDB();
           if (profile) {
             setProfile(profile.structured_data);
             if (profile.raw_transcript) {

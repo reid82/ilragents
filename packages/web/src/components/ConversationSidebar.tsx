@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useConversationStore } from "@/lib/stores/conversation-store";
 import type { ConversationMeta } from "@/lib/stores/conversation-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { useSessionStore } from "@/lib/stores/session-store";
 
 interface ConversationSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onNewChat: () => void;
+  onOpenProfile?: () => void;
 }
 
 function getDateGroup(dateStr: string): string {
@@ -29,9 +31,11 @@ export default function ConversationSidebar({
   isOpen,
   onClose,
   onNewChat,
+  onOpenProfile,
 }: ConversationSidebarProps) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const isOnboarded = useSessionStore((s) => s.isOnboarded);
   const conversations = useConversationStore((s) => s.conversations);
   const activeConversationId = useConversationStore((s) => s.activeConversationId);
   const fetchConversations = useConversationStore((s) => s.fetchConversations);
@@ -42,15 +46,7 @@ export default function ConversationSidebar({
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      const supabase = getSupabaseBrowserClient();
-      const { data: { session } } = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
-      const token = session?.access_token;
-      if (token) {
-        fetchConversations(token);
-      }
-    }
-    load();
+    fetchConversations();
   }, [fetchConversations]);
 
   const filtered = useMemo(() => {
@@ -71,13 +67,9 @@ export default function ConversationSidebar({
 
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
-    const token = session?.access_token;
-    if (!token) return;
     setDeletingId(id);
     try {
-      await deleteConversation(id, token);
+      await deleteConversation(id);
       if (activeConversationId === id) {
         router.push("/");
       }
@@ -93,8 +85,18 @@ export default function ConversationSidebar({
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-zinc-950 border-r border-zinc-800 w-[280px]">
-      {/* Top: New Chat button */}
-      <div className="p-3 border-b border-zinc-800 flex-shrink-0">
+      {/* Top: Home + New Chat */}
+      <div className="p-3 border-b border-zinc-800 flex-shrink-0 space-y-2">
+        <Link
+          href="/"
+          onClick={onClose}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Home
+        </Link>
         <button
           onClick={onNewChat}
           className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
@@ -199,13 +201,38 @@ export default function ConversationSidebar({
           </svg>
           Resources
         </a>
+        {isOnboarded && (
+          <>
+            <button
+              onClick={onOpenProfile}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors w-full"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              My Profile
+            </button>
+            <Link
+              href="/roadmap"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              My Roadmap
+            </Link>
+          </>
+        )}
         {user && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800">
+          <button
+            onClick={onOpenProfile}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors w-full"
+          >
             <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
               {user.email?.[0]?.toUpperCase() ?? "U"}
             </div>
             <span className="text-xs text-zinc-400 truncate flex-1">{user.email}</span>
-          </div>
+          </button>
         )}
       </div>
     </div>

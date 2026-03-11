@@ -1,20 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { config } from 'dotenv';
-import path from 'path';
+import { getAuthenticatedUserId } from '@/lib/supabase-server';
+import { getSupabaseClient } from '@/lib/supabase';
 
-config({ path: path.resolve(process.cwd(), '../../.env') });
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
 
-async function getAuthenticatedUserId(req: NextRequest): Promise<string | null> {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  const token = authHeader.slice(7);
-  const { getSupabaseClient } = await import('@/lib/supabase');
-  const supabase = getSupabaseClient();
+  try {
+    const supabase = getSupabaseClient();
 
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user.id;
+    // Verify ownership
+    const { data: conv, error: convError } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (convError || !conv) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    const { data, error } = await supabase
+      .from('conversation_messages')
+      .select('id, role, content, sources, referrals, created_at')
+      .eq('conversation_id', id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Failed to fetch messages:', error);
+      return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Messages fetch error:', error);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  }
 }
 
 export async function POST(
@@ -23,7 +52,7 @@ export async function POST(
 ) {
   const { id } = await params;
 
-  const userId = await getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -40,7 +69,6 @@ export async function POST(
       return NextResponse.json({ error: 'role must be user or assistant' }, { status: 400 });
     }
 
-    const { getSupabaseClient } = await import('@/lib/supabase');
     const supabase = getSupabaseClient();
 
     // Verify conversation ownership

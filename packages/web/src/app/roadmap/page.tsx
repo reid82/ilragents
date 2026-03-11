@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import { useRoadmapStore } from '@/lib/stores/roadmap-store';
 import type { RoadmapData } from '@/lib/stores/roadmap-store';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+
 
 interface SectionNav {
   id: string;
@@ -58,23 +58,17 @@ export default function RoadmapPage() {
     (async () => {
       try {
         if (user) {
-          const supabase = getSupabaseBrowserClient();
-          const session = (await supabase?.auth.getSession())?.data.session;
-          if (session?.access_token) {
-            const res = await fetch('/api/roadmap/mine', {
-              headers: { Authorization: `Bearer ${session.access_token}` },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data.status === 'completed' && data.roadmapId) {
-                useRoadmapStore.getState().setCompleted(
-                  data.reportMarkdown,
-                  data.reportData as RoadmapData,
-                  data.roadmapId
-                );
-                setIsHydrating(false);
-                return;
-              }
+          const res = await fetch('/api/roadmap/mine');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'completed' && data.roadmapId) {
+              useRoadmapStore.getState().setCompleted(
+                data.reportMarkdown,
+                data.reportData as RoadmapData,
+                data.roadmapId
+              );
+              setIsHydrating(false);
+              return;
             }
           }
         }

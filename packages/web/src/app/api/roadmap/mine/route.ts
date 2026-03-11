@@ -1,32 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { config } from 'dotenv';
-import path from 'path';
-
-config({ path: path.resolve(process.cwd(), '../../.env') });
+import { getAuthenticatedUserId } from '@/lib/supabase-server';
+import { getSupabaseClient } from '@/lib/supabase';
 
 /**
  * GET /api/roadmap/mine
  * Returns the authenticated user's latest completed roadmap.
- * Uses the Bearer token to identify the user and queries by user_id.
  */
-export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
+export async function GET(_req: NextRequest) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const token = authHeader.slice(7);
-
   try {
-    const { getSupabaseClient } = await import('@/lib/supabase');
     const supabase = getSupabaseClient();
-
-    const { data: userData, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !userData.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = userData.user.id;
 
     // Find the most recent completed (or generating) roadmap for this user
     const { data, error } = await supabase

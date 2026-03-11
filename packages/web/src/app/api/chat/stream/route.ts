@@ -161,7 +161,12 @@ export async function POST(req: NextRequest) {
           // No URL: try address lookup with real-time progress
           try {
             const { lookupListingByAddress } = await import("@ilre/pipeline/listing-lookup");
+            // Suppress the initial "Extracting address..." status - only show
+            // progress once we know there's actually an address to look up
+            let addressConfirmed = false;
             const lookupResult = await lookupListingByAddress(query, (status: string) => {
+              if (!addressConfirmed && status.toLowerCase().includes('extract')) return;
+              addressConfirmed = true;
               sendEvent({ type: "status", message: status });
             });
 
@@ -252,12 +257,12 @@ export async function POST(req: NextRequest) {
             content: query,
           });
 
-          // Save assistant message (with sources and referrals)
+          // Save assistant message (with sources)
           await supabase.from("conversation_messages").insert({
             conversation_id: conversationId,
             role: "assistant",
             content: assistantText,
-            metadata: { sources: sourcesPayload },
+            sources: sourcesPayload,
           });
 
           // Auto-title the conversation if it still has the default title

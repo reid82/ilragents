@@ -1,36 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUserId } from '@/lib/supabase-server';
+import { getSupabaseClient } from '@/lib/supabase';
 
-/**
- * Validate the bearer token from the Authorization header and return the
- * authenticated user's ID.  Returns null if validation fails.
- */
-async function getAuthenticatedUserId(req: NextRequest): Promise<string | null> {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-
-  const token = authHeader.slice(7);
-  const { getSupabaseClient } = await import('@/lib/supabase');
-  const supabase = getSupabaseClient();
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user.id;
-}
-
-export async function GET(req: NextRequest) {
-  const authedUserId = await getAuthenticatedUserId(req);
-  if (!authedUserId) {
+export async function GET(_req: NextRequest) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { getSupabaseClient } = await import('@/lib/supabase');
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from('financial_positions')
       .select('structured_data, raw_transcript, summary')
-      .eq('user_id', authedUserId)
+      .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -48,8 +32,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const authedUserId = await getAuthenticatedUserId(req);
-  if (!authedUserId) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -61,7 +45,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { getSupabaseClient } = await import('@/lib/supabase');
     const supabase = getSupabaseClient();
 
     const { error } = await supabase
@@ -70,7 +53,7 @@ export async function POST(req: NextRequest) {
         structured_data: profile,
         summary: profile.summary,
       })
-      .eq('user_id', authedUserId);
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Failed to update profile:', error);

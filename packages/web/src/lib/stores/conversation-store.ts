@@ -31,60 +31,57 @@ interface ConversationState {
   isLoadingList: boolean;
   isLoadingMessages: boolean;
 
-  fetchConversations: (token: string) => Promise<void>;
-  loadConversation: (id: string, token: string) => Promise<void>;
-  createConversation: (token: string, title?: string) => Promise<string>;
+  fetchConversations: () => Promise<void>;
+  loadConversation: (id: string) => Promise<void>;
+  createConversation: (title?: string) => Promise<string>;
   addMessage: (msg: Message) => void;
   updateLastMessage: (msg: Message) => void;
-  persistMessage: (conversationId: string, msg: Message, token: string) => Promise<void>;
-  deleteConversation: (id: string, token: string) => Promise<void>;
-  renameConversation: (id: string, title: string, token: string) => Promise<void>;
+  persistMessage: (conversationId: string, msg: Message) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
+  renameConversation: (id: string, title: string) => Promise<void>;
   setActiveConversation: (id: string | null) => void;
   clearMessages: () => void;
 }
 
-export const useConversationStore = create<ConversationState>((set, get) => ({
+export const useConversationStore = create<ConversationState>((set) => ({
   conversations: [],
   activeConversationId: null,
   messages: [],
   isLoadingList: false,
   isLoadingMessages: false,
 
-  fetchConversations: async (token: string) => {
+  fetchConversations: async () => {
     set({ isLoadingList: true });
     try {
-      const res = await fetch('/api/conversations', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch('/api/conversations');
       if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
       const data: ConversationMeta[] = await res.json();
       set({ conversations: data });
+    } catch (error) {
+      console.error('fetchConversations error:', error);
     } finally {
       set({ isLoadingList: false });
     }
   },
 
-  loadConversation: async (id: string, token: string) => {
+  loadConversation: async (id: string) => {
     set({ isLoadingMessages: true });
     try {
-      const res = await fetch(`/api/conversations/${id}/messages`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/conversations/${id}/messages`);
       if (!res.ok) throw new Error(`Failed to load conversation: ${res.status}`);
       const data: Message[] = await res.json();
       set({ messages: data, activeConversationId: id });
+    } catch (error) {
+      console.error('loadConversation error:', error);
     } finally {
       set({ isLoadingMessages: false });
     }
   },
 
-  createConversation: async (token: string, title?: string) => {
+  createConversation: async (title?: string) => {
     const res = await fetch('/api/conversations', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: title ?? 'New conversation' }),
     });
     if (!res.ok) throw new Error(`Failed to create conversation: ${res.status}`);
@@ -108,22 +105,18 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     });
   },
 
-  persistMessage: async (conversationId: string, msg: Message, token: string) => {
+  persistMessage: async (conversationId: string, msg: Message) => {
     const res = await fetch(`/api/conversations/${conversationId}/messages`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(msg),
     });
     if (!res.ok) throw new Error(`Failed to persist message: ${res.status}`);
   },
 
-  deleteConversation: async (id: string, token: string) => {
+  deleteConversation: async (id: string) => {
     const res = await fetch(`/api/conversations/${id}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error(`Failed to delete conversation: ${res.status}`);
     set((state) => ({
@@ -133,13 +126,10 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     }));
   },
 
-  renameConversation: async (id: string, title: string, token: string) => {
+  renameConversation: async (id: string, title: string) => {
     const res = await fetch(`/api/conversations/${id}`, {
       method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title }),
     });
     if (!res.ok) throw new Error(`Failed to rename conversation: ${res.status}`);

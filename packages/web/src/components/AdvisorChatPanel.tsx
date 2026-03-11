@@ -16,7 +16,6 @@ import { parseReferrals, SPECIALIST_TEAMS } from "@/lib/specialists";
 import type { Referral, SpecialistTeam } from "@/lib/specialists";
 import EmailDraftModal from "@/components/EmailDraftModal";
 import FeedbackButton from "@/components/FeedbackButton";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type ResponseFormat = "concise" | "standard" | "detailed";
 const EMPTY_MESSAGES: Message[] = [];
@@ -75,13 +74,6 @@ IMPORTANT: These roadmap numbers are commitments made to the client. Always refe
   return context;
 }
 
-async function getAuthToken(): Promise<string | null> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) return null;
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token ?? null;
-}
-
 interface AdvisorChatPanelProps {
   conversationId: string;
   initialPrompt?: string;
@@ -101,7 +93,7 @@ export default function AdvisorChatPanel({
   const updateLastMessage = useConversationStore((s) => s.updateLastMessage);
   const clearMessages = useConversationStore((s) => s.clearMessages);
   const loadConversation = useConversationStore((s) => s.loadConversation);
-  const persistMessage = useConversationStore((s) => s.persistMessage);
+  const fetchConversations = useConversationStore((s) => s.fetchConversations);
 
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -117,16 +109,12 @@ export default function AdvisorChatPanel({
   const inputRef = useRef<HTMLInputElement>(null);
   const hasAutoSubmitted = useRef(false);
 
-  // Load conversation messages on mount
+  // Load conversation messages on mount (skip for new conversations with an initial prompt)
   useEffect(() => {
-    async function load() {
-      const token = await getAuthToken();
-      if (token) {
-        loadConversation(conversationId, token);
-      }
+    if (!initialPrompt) {
+      loadConversation(conversationId);
     }
-    load();
-  }, [conversationId, loadConversation]);
+  }, [conversationId, loadConversation, initialPrompt]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -135,8 +123,6 @@ export default function AdvisorChatPanel({
   const sendMessageDirect = useCallback(
     async (userMessage: string) => {
       if (isLoading) return;
-
-      const token = await getAuthToken();
 
       const userMsg: Message = { role: "user", content: userMessage };
       addMessage(userMsg);
@@ -156,7 +142,6 @@ export default function AdvisorChatPanel({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
             query: userMessage,
@@ -237,11 +222,10 @@ export default function AdvisorChatPanel({
 
         updateLastMessage(assistantMsg);
 
-        // Persist both messages to Supabase
-        if (token) {
-          await persistMessage(conversationId, userMsg, token);
-          await persistMessage(conversationId, assistantMsg, token);
-        }
+        // Messages are persisted server-side by the stream route after the
+        // done event, so wait briefly for the auto-title to be written before
+        // refreshing the sidebar conversation list.
+        setTimeout(() => fetchConversations().catch(() => {}), 1500);
 
         // Trigger roadmap generation if accepted
         if (roadmapAccepted && clientProfile && sessionId) {
@@ -267,7 +251,7 @@ export default function AdvisorChatPanel({
         setTimeout(() => inputRef.current?.focus(), 0);
       }
     },
-    [isLoading, conversationId, format, clientProfile, roadmapData, addMessage, updateLastMessage, persistMessage, sessionId, authUser?.id, startGeneration]
+    [isLoading, conversationId, format, clientProfile, roadmapData, addMessage, updateLastMessage, fetchConversations, sessionId, authUser?.id, startGeneration]
   );
 
   // Auto-submit initialPrompt on mount
@@ -473,7 +457,7 @@ ${name}`;
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-800 px-3 sm:px-6 py-3 sm:py-4 pb-14 sm:pb-12">
+      <div className="border-t border-zinc-800 px-3 sm:px-6 py-3 sm:py-4">
         <p className="text-[11px] text-zinc-500 text-center mb-2 max-w-2xl mx-auto hidden sm:block">
           Thanks for testing! Please use the feedback button on any response to help us improve.
         </p>

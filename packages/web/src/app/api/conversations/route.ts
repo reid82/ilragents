@@ -1,30 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { config } from 'dotenv';
-import path from 'path';
+import { getAuthenticatedUserId } from '@/lib/supabase-server';
+import { getSupabaseClient } from '@/lib/supabase';
 
-config({ path: path.resolve(process.cwd(), '../../.env') });
-
-async function getAuthenticatedUserId(req: NextRequest): Promise<string | null> {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-
-  const token = authHeader.slice(7);
-  const { getSupabaseClient } = await import('@/lib/supabase');
-  const supabase = getSupabaseClient();
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user.id;
-}
-
-export async function GET(req: NextRequest) {
-  const userId = await getAuthenticatedUserId(req);
+export async function GET(_req: NextRequest) {
+  const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { getSupabaseClient } = await import('@/lib/supabase');
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
@@ -38,7 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 });
     }
 
-    return NextResponse.json({ conversations: data });
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Conversations fetch error:', error);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
@@ -46,7 +30,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = await getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -55,7 +39,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const title = body?.title || 'New conversation';
 
-    const { getSupabaseClient } = await import('@/lib/supabase');
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase

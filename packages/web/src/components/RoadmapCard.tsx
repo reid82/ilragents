@@ -6,17 +6,17 @@ import { useRoadmapStore } from '@/lib/stores/roadmap-store';
 import type { RoadmapData } from '@/lib/stores/roadmap-store';
 import { useSessionStore } from '@/lib/stores/session-store';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+
 
 interface RoadmapCardProps {
   isOnboarded: boolean;
+  onStartChat?: (prompt: string) => void;
 }
 
-const ROADMAP_PROMPT = encodeURIComponent(
-  "I'd like you to generate my personalised investment roadmap."
-);
+const ROADMAP_PROMPT = "I'd like you to generate my personalised investment roadmap.";
+const REFINE_PROMPT = "I'd like to discuss and refine my investment roadmap.";
 
-export default function RoadmapCard({ isOnboarded }: RoadmapCardProps) {
+export default function RoadmapCard({ isOnboarded, onStartChat }: RoadmapCardProps) {
   const { status, sectionsCompleted, totalSections, currentSectionLabel, reportData } =
     useRoadmapStore();
   const sessionId = useSessionStore((s) => s.sessionId);
@@ -31,13 +31,7 @@ export default function RoadmapCard({ isOnboarded }: RoadmapCardProps) {
 
     (async () => {
       try {
-        const supabase = getSupabaseBrowserClient();
-        const session = (await supabase?.auth.getSession())?.data.session;
-        if (!session?.access_token) return;
-
-        const res = await fetch('/api/roadmap/mine', {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
+        const res = await fetch('/api/roadmap/mine');
         if (!res.ok) return;
 
         const data = await res.json();
@@ -152,10 +146,6 @@ export default function RoadmapCard({ isOnboarded }: RoadmapCardProps) {
 
   // Ready state - roadmap exists
   if (status === 'completed') {
-    const refinePrompt = encodeURIComponent(
-      "I'd like to discuss and refine my investment roadmap."
-    );
-
     return (
       <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-5">
         <div className="flex items-center justify-between">
@@ -187,25 +177,25 @@ export default function RoadmapCard({ isOnboarded }: RoadmapCardProps) {
             </svg>
             View Roadmap
           </Link>
-          <Link
-            href={`/chat/baseline-ben?prompt=${refinePrompt}`}
+          <button
+            onClick={() => onStartChat?.(REFINE_PROMPT)}
             className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             Discuss &amp; Refine
-          </Link>
+          </button>
         </div>
       </div>
     );
   }
 
-  // Default - no roadmap yet. Link to Ben with auto-prompt
+  // Default - no roadmap yet
   return (
-    <Link
-      href={`/chat/baseline-ben?prompt=${ROADMAP_PROMPT}`}
-      className="group block rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 transition-all hover:border-zinc-600 hover:bg-zinc-900"
+    <button
+      onClick={() => onStartChat?.(ROADMAP_PROMPT)}
+      className="group block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 transition-all hover:border-zinc-600 hover:bg-zinc-900 text-left"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -220,10 +210,10 @@ export default function RoadmapCard({ isOnboarded }: RoadmapCardProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 text-zinc-400 text-sm group-hover:text-white transition-colors">
-          <span>Ask Ben to create you one</span>
+          <span>Generate your roadmap</span>
           <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
         </div>
       </div>
-    </Link>
+    </button>
   );
 }

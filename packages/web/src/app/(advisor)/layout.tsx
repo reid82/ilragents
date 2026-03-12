@@ -93,7 +93,7 @@ export default function AdvisorLayout({ children }: { children: React.ReactNode 
               className="font-semibold text-sm"
               style={{ color: "var(--text-primary)" }}
             >
-              ILR Advisor
+              ILR Edge
             </span>
           </Link>
 

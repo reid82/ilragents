@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "I Love Real Estate - Property Investment Advisors",
+  title: "ILR Edge - Property Investment Advisor",
   description:
-    "AI-powered property investment advisors trained on I Love Real Estate materials.",
+    "AI-powered property investment advisor trained on I Love Real Estate methodology.",
 };
 
 export const viewport: Viewport = {

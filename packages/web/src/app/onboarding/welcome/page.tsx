@@ -45,7 +45,7 @@ export default function WelcomePage() {
               className="text-[22px] font-bold mt-4"
               style={{ color: "var(--text-primary)" }}
             >
-              Welcome to ILR Advisor
+              Welcome to ILR Edge
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
               Let&apos;s get you set up

@@ -24,7 +24,7 @@ import { getDateDividerLabel, shouldShowDateDivider } from "@/lib/date-utils";
 type ResponseFormat = "concise" | "standard" | "detailed";
 const EMPTY_MESSAGES: Message[] = [];
 
-const ADVISOR_NAME = "ILR Advisor";
+const ADVISOR_NAME = "ILR Edge";
 
 const ROADMAP_INSTRUCTIONS = `
 
@@ -374,7 +374,7 @@ ${name}`;
         {messages.length === 0 && (
           <div className="text-center mt-20">
             <p className="text-lg font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-              Ask the ILR Advisor anything
+              Ask ILR Edge anything
             </p>
             <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
               Your unified property investment advisor, here to help with strategy, deals, finance and more.
@@ -433,7 +433,7 @@ ${name}`;
                 <div className={`max-w-[80%] lg:max-w-[70%] ${msg.role === "user" ? "" : "flex-1"}`}>
                   {msg.role === "assistant" && (
                     <p className="text-[11px] mb-1 font-medium" style={{ color: 'var(--text-muted)' }}>
-                      ILR Advisor
+                      ILR Edge
                     </p>
                   )}
 

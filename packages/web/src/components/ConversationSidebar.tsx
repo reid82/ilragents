@@ -96,7 +96,7 @@ export default function ConversationSidebar({
           >
             <Home className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-sm">ILR Advisor</span>
+          <span className="font-semibold text-sm">ILR Edge</span>
         </Link>
         <button
           onClick={onNewChat}

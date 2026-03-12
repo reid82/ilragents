@@ -84,7 +84,7 @@ export default function LoginPage() {
             className="text-2xl font-bold mt-4"
             style={{ color: "var(--text-primary)" }}
           >
-            ILR Advisor
+            ILR Edge
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
             {isSignUp ? "Create your account" : "Your AI property investment advisor"}

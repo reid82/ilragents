@@ -126,7 +126,7 @@ export default function AdvisorLandingPage() {
                 <Building2 className="w-8 h-8" style={{ color: 'var(--primary-light)' }} />
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
-                Welcome to ILR Advisor
+                Welcome to ILR Edge
               </h1>
               <p className="text-base sm:text-lg max-w-xl mx-auto leading-relaxed mb-8" style={{ color: 'var(--text-secondary)' }}>
                 Your AI advisor trained on ILR&apos;s proven property investment methodology.
@@ -211,7 +211,7 @@ export default function AdvisorLandingPage() {
               <Building2 className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-3">
-              ILR Advisor
+              ILR Edge
             </h1>
             <p className="text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               Your AI advisor trained on ILR&apos;s proven property investment methodology.

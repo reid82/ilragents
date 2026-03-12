@@ -51,6 +51,15 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Restore cursor-pointer on interactive elements (Tailwind 4 dropped the default) */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+a[href],
+select,
+summary {
+  cursor: pointer;
+}
+
 /* Prevent markdown tables from overflowing on mobile */
 .prose table {
   display: block;

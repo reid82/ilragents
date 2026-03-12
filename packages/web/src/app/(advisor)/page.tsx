@@ -298,13 +298,13 @@ export default function AdvisorLandingPage() {
         </div>
 
         {/* Chat starters */}
-        <div className="flex flex-wrap justify-center gap-1.5 mb-4 max-w-3xl mx-auto">
+        <div className="flex overflow-x-auto no-scrollbar gap-1.5 mb-4 max-w-3xl mx-auto">
           {CHAT_STARTERS.map((starter) => (
             <button
               key={starter}
               onClick={() => startConversation(starter)}
               disabled={isCreating}
-              className="text-[11px] px-3.5 py-1.5 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-[11px] px-3.5 py-1.5 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
               style={{
                 background: 'var(--surface-2)',
                 border: '1px solid var(--border-subtle)',

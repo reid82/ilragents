@@ -3,25 +3,36 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MessageSquare } from "lucide-react";
 import ConversationSidebar from "@/components/ConversationSidebar";
 import ProfileModal from "@/components/ProfileModal";
 import { useConversationStore } from "@/lib/stores/conversation-store";
 import { useClientProfileStore } from "@/lib/stores/financial-store";
+import { useAuthStore } from "@/lib/stores/auth-store";
+
 export default function AdvisorLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const createConversation = useConversationStore((s) => s.createConversation);
   const clearMessages = useConversationStore((s) => s.clearMessages);
   const profile = useClientProfileStore((s) => s.profile);
   const setProfile = useClientProfileStore((s) => s.setProfile);
+  const user = useAuthStore((s) => s.user);
+
+  // Derive initials for avatar
+  const initials = (() => {
+    if (profile?.personal?.firstName) {
+      return profile.personal.firstName[0].toUpperCase();
+    }
+    if (user?.email) return user.email[0].toUpperCase();
+    return "?";
+  })();
 
   async function handleNewChat() {
     try {
       clearMessages();
       const newId = await createConversation("New conversation");
       router.push(`/chat/${newId}`);
-      setSidebarOpen(false);
     } catch {
       router.push("/login");
     }
@@ -31,49 +42,118 @@ export default function AdvisorLayout({ children }: { children: React.ReactNode 
     if (!updated) return;
     setProfile(updated);
     try {
-      await fetch('/api/user/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/user/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile: updated }),
       });
     } catch (err) {
-      console.error('Failed to save profile to DB:', err);
+      console.error("Failed to save profile to DB:", err);
     }
   }
 
   return (
-    <div className="flex h-screen pb-14 bg-zinc-950 text-white overflow-hidden">
-      {/* Sidebar */}
-      <ConversationSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onNewChat={handleNewChat}
-        onOpenProfile={() => setShowProfile(true)}
-      />
+    <div
+      className="flex h-screen text-white overflow-hidden"
+      style={{ background: "var(--surface-0)" }}
+    >
+      {/* Desktop sidebar -- hidden below 1024px */}
+      <div className="hidden lg:flex">
+        <ConversationSidebar
+          isOpen={false}
+          onClose={() => {}}
+          onNewChat={handleNewChat}
+          onOpenProfile={() => setShowProfile(true)}
+        />
+      </div>
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header with menu toggle and home button */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 flex-shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="md:hidden text-zinc-400 hover:text-white transition-colors p-1"
-            aria-label="Open sidebar"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            <span className="font-semibold text-sm">ILR Property Advisor</span>
+        {/* Mobile compact header -- visible below 1024px */}
+        <div
+          className="flex items-center justify-between px-4 flex-shrink-0 lg:hidden"
+          style={{
+            borderBottom: "1px solid var(--border-subtle)",
+            height: "48px",
+            zIndex: 20,
+          }}
+        >
+          {/* Left: logo + app name */}
+          <Link href="/" className="flex items-center gap-2">
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "10px",
+                background: "linear-gradient(135deg, var(--primary), var(--primary-hover))",
+              }}
+            >
+              <MessageSquare className="w-4 h-4 text-white" />
+            </div>
+            <span
+              className="font-semibold text-sm"
+              style={{ color: "var(--text-primary)" }}
+            >
+              ILR Advisor
+            </span>
           </Link>
+
+          {/* Right: Roadmap + Profile avatar */}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/roadmap"
+              className="px-3 py-1.5 text-xs font-medium rounded-full transition-colors"
+              style={{
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              Roadmap
+            </Link>
+            <button
+              onClick={() => setShowProfile(true)}
+              className="flex items-center justify-center rounded-full text-xs font-semibold"
+              style={{
+                width: "32px",
+                height: "32px",
+                background: "var(--surface-3)",
+                color: "var(--text-primary)",
+              }}
+              aria-label="Open profile"
+            >
+              {initials}
+            </button>
+          </div>
         </div>
+
+        {/* Desktop header -- visible at 1024px+ */}
+        <div
+          className="hidden lg:flex items-center justify-between px-6 flex-shrink-0"
+          style={{
+            borderBottom: "1px solid var(--border-subtle)",
+            height: "48px",
+          }}
+        >
+          <div>
+            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+              Conversation
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              disabled
+              className="px-3 py-1.5 text-xs font-medium rounded-md opacity-40 cursor-not-allowed"
+              style={{
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              Export
+            </button>
+          </div>
+        </div>
+
         {children}
       </div>
 

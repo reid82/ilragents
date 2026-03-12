@@ -2,20 +2,52 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
+  /* Primary - Emerald */
+  --primary: #10b981;
+  --primary-hover: #059669;
+  --primary-light: #34d399;
+  --primary-glow: rgba(16, 185, 129, 0.15);
+  --primary-subtle: rgba(16, 185, 129, 0.06);
+
+  /* Surfaces */
+  --surface-0: #09090b;
+  --surface-1: #0a0a0c;
+  --surface-2: rgba(255, 255, 255, 0.03);
+  --surface-3: rgba(255, 255, 255, 0.06);
+
+  /* Text */
+  --text-primary: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+  --text-faint: #3f3f46;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.08);
+
+  /* Message surfaces */
+  --surface-message: rgba(255, 255, 255, 0.05);
+  --border-message: rgba(255, 255, 255, 0.04);
+  --surface-data-card: rgba(255, 255, 255, 0.04);
+
+  /* Legacy compatibility */
+  --background: var(--surface-0);
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--surface-0);
+  color: var(--text-primary);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
@@ -23,7 +55,6 @@ body {
 .prose table {
   display: block;
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* Prevent code blocks from overflowing */
@@ -35,4 +66,122 @@ body {
 .prose {
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+/* Hide scrollbar for horizontal nav strips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Message appear animation */
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-message-in {
+  animation: message-in 0.25s ease-out;
+}
+
+/* Thinking dot pulse */
+@keyframes dot-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-dot-pulse {
+  animation: dot-pulse 1.4s ease-in-out infinite;
+}
+
+/* Bottom sheet spring animation */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-sheet-up {
+  animation: sheet-up 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* FAB appear */
+@keyframes fab-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fab-in {
+  animation: fab-in 0.15s ease-out;
+}
+
+/* Context menu scale-up */
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-menu-in {
+  animation: menu-in 0.15s ease-out;
+}
+
+/* Chip select feedback */
+@keyframes chip-select {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+.animate-chip-select {
+  animation: chip-select 0.15s ease-out;
+}
+
+/* Send button press */
+@keyframes send-press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.animate-send-press {
+  animation: send-press 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Input focus glow transition utility */
+.input-focus-glow {
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* Reduced motion: disable all custom animations and transitions */
+@media (prefers-reduced-motion: reduce) {
+  .animate-message-in,
+  .animate-sheet-up,
+  .animate-fab-in,
+  .animate-menu-in,
+  .animate-chip-select,
+  .animate-send-press {
+    animation: none !important;
+  }
+  .input-focus-glow {
+    transition: none !important;
+  }
+  .animate-dot-pulse {
+    animation: none !important;
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Safe area utility */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }

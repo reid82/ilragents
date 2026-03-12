@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { FileText, MessageSquare } from 'lucide-react';
 import { useRoadmapStore } from '@/lib/stores/roadmap-store';
 import type { RoadmapData } from '@/lib/stores/roadmap-store';
 import { useSessionStore } from '@/lib/stores/session-store';
@@ -43,18 +44,17 @@ export default function RoadmapCard({ isOnboarded, onStartChat }: RoadmapCardPro
             data.roadmapId
           );
         } else if (data.status === 'generating' && data.roadmapId) {
-          // Resume polling state
           useRoadmapStore.getState().setRoadmapId(data.roadmapId);
           useRoadmapStore.getState().setStatus('generating');
           useRoadmapStore.getState().setProgress(data.sectionsCompleted || 0);
         }
       } catch {
-        // Non-fatal - user will just see the default idle state
+        // Non-fatal
       }
     })();
   }, [status, user, isOnboarded]);
 
-  // Sync with server when store says "generating" - detect stale/failed state
+  // Sync with server when store says "generating"
   useEffect(() => {
     if (status !== 'generating' || !sessionId || syncRef.current) return;
     syncRef.current = true;
@@ -66,7 +66,6 @@ export default function RoadmapCard({ isOnboarded, onStartChat }: RoadmapCardPro
 
         if (data.status === 'completed' && data.roadmapId) {
           clearInterval(poll);
-          // Fetch the full report
           const reportRes = await fetch(`/api/roadmap/${data.roadmapId}`);
           if (reportRes.ok) {
             const report = await reportRes.json();
@@ -91,10 +90,8 @@ export default function RoadmapCard({ isOnboarded, onStartChat }: RoadmapCardPro
       }
     }, 3000);
 
-    // Stop polling after 10 minutes
     const timeout = setTimeout(() => {
       clearInterval(poll);
-      // If still generating after 10 min, reset
       if (useRoadmapStore.getState().status === 'generating') {
         useRoadmapStore.getState().reset();
       }
@@ -114,30 +111,39 @@ export default function RoadmapCard({ isOnboarded, onStartChat }: RoadmapCardPro
     const progress = totalSections > 0 ? (sectionsCompleted / totalSections) * 100 : 0;
 
     return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+      <div
+        className="rounded-xl p-5"
+        style={{
+          border: '1px solid rgba(16, 185, 129, 0.2)',
+          background: 'var(--primary-subtle)',
+        }}
+      >
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-            <svg className="w-5 h-5 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center"
+            style={{ background: 'var(--primary-glow)' }}
+          >
+            <div
+              className="w-5 h-5 border-2 rounded-full animate-spin"
+              style={{ borderColor: 'var(--primary-light)', borderTopColor: 'transparent' }}
+            />
           </div>
           <div>
             <h3 className="font-semibold text-white">Building Your Roadmap</h3>
-            <p className="text-xs text-amber-300/80">
+            <p className="text-xs" style={{ color: 'var(--primary-light)' }}>
               {currentSectionLabel
                 ? `Working on: ${currentSectionLabel}`
                 : `Section ${sectionsCompleted} of ${totalSections}`}
             </p>
           </div>
         </div>
-        <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+        <div className="w-full rounded-full h-2 overflow-hidden" style={{ background: 'var(--surface-3)' }}>
           <div
-            className="bg-amber-500 h-full rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${progress}%` }}
+            className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progress}%`, background: 'var(--primary)' }}
           />
         </div>
-        <p className="text-xs text-zinc-500 mt-2">
+        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
           This takes a few minutes. You can navigate away safely.
         </p>
       </div>
@@ -147,43 +153,54 @@ export default function RoadmapCard({ isOnboarded, onStartChat }: RoadmapCardPro
   // Ready state - roadmap exists
   if (status === 'completed') {
     return (
-      <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-5">
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: 'linear-gradient(135deg, var(--primary-glow), var(--primary-subtle))',
+          border: '1px solid rgba(16, 185, 129, 0.2)',
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'var(--primary-glow)' }}
+            >
+              <FileText className="w-5 h-5" style={{ color: 'var(--primary-light)' }} />
             </div>
             <div>
               <h3 className="font-semibold text-white">My Roadmap</h3>
-              <p className="text-xs text-amber-300/80">Your personalised investment roadmap is ready</p>
+              <p className="text-xs" style={{ color: 'var(--primary-light)' }}>Your personalised investment roadmap is ready</p>
             </div>
           </div>
           {reportData && (
-            <div className="hidden sm:flex items-center gap-4 text-xs text-zinc-400">
-              <span>Score: <span className="text-amber-400 font-medium">{reportData.investorScore}/100</span></span>
-              <span>Strategy: <span className="text-amber-400 font-medium capitalize">{reportData.strategyType}</span></span>
+            <div className="hidden sm:flex items-center gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <span>Score: <span className="font-medium" style={{ color: 'var(--primary-light)' }}>{reportData.investorScore}/100</span></span>
+              <span>Strategy: <span className="font-medium capitalize" style={{ color: 'var(--primary-light)' }}>{reportData.strategyType}</span></span>
             </div>
           )}
         </div>
         <div className="flex items-center gap-3 mt-4">
           <Link
             href="/roadmap"
-            className="flex items-center gap-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            style={{
+              background: 'var(--primary-glow)',
+              color: 'var(--primary-light)',
+            }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <FileText className="w-4 h-4" />
             View Roadmap
           </Link>
           <button
             onClick={() => onStartChat?.(REFINE_PROMPT)}
-            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            style={{
+              background: 'var(--surface-2)',
+              color: 'var(--text-secondary)',
+            }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
+            <MessageSquare className="w-4 h-4" />
             Discuss &amp; Refine
           </button>
         </div>
@@ -195,21 +212,34 @@ export default function RoadmapCard({ isOnboarded, onStartChat }: RoadmapCardPro
   return (
     <button
       onClick={() => onStartChat?.(ROADMAP_PROMPT)}
-      className="group block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 transition-all hover:border-zinc-600 hover:bg-zinc-900 text-left"
+      className="group block w-full rounded-xl p-5 transition-all text-left"
+      style={{
+        background: 'var(--surface-2)',
+        border: '1px solid var(--border-subtle)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-default)';
+        e.currentTarget.style.transform = 'translateY(-1px)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-subtle)';
+        e.currentTarget.style.transform = 'translateY(0)';
+      }}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-white transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
+            style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}
+          >
+            <FileText className="w-5 h-5" />
           </div>
           <div>
             <h3 className="font-semibold text-white">My Roadmap</h3>
-            <p className="text-xs text-zinc-400">Your personalised strategy, deal criteria, and year-by-year plan</p>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Your personalised strategy, deal criteria, and year-by-year plan</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-zinc-400 text-sm group-hover:text-white transition-colors">
+        <div className="flex items-center gap-2 text-sm transition-colors" style={{ color: 'var(--text-secondary)' }}>
           <span>Generate your roadmap</span>
           <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { config } from 'dotenv';
 import path from 'path';
+import { requireAdmin, isAdminError } from '@/lib/admin-auth';
 
 config({ path: path.resolve(process.cwd(), '../../.env') });
 
@@ -11,6 +12,11 @@ export async function GET(
   const { id } = await params;
 
   try {
+    const auth = await requireAdmin();
+    if (isAdminError(auth)) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { getSupabaseClient } = await import('@/lib/supabase');
     const supabase = getSupabaseClient();
 
@@ -41,6 +47,11 @@ export async function PUT(
   const { id } = await params;
 
   try {
+    const auth = await requireAdmin();
+    if (isAdminError(auth)) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
     const { system_prompt_override, personality_traits, greeting_message, elevenlabs_agent_id } = body;
 

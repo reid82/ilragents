@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import type {
   ClientProfile,
   DebtItem,
@@ -23,47 +24,34 @@ interface ProfileModalProps {
   onClose: () => void;
 }
 
-// ── Enum options ──────────────────────────────────────
-
+// Enum options
 const STATES: AustralianState[] = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"];
-
 const EMPLOYMENT_TYPES: EmploymentType[] = [
   "payg-fulltime", "payg-parttime", "payg-casual",
   "self-employed-sole", "self-employed-company", "contractor", "mixed",
 ];
-
 const GOAL_TYPES: InvestmentGoalType[] = [
   "first-property", "grow-portfolio", "passive-income",
   "development", "restructure", "retirement", "other",
 ];
-
 const TIME_HORIZONS: TimeHorizon[] = [
   "under-1-year", "1-3-years", "3-5-years", "5-10-years", "10-plus-years",
 ];
-
 const RISK_LEVELS: RiskTolerance[] = ["conservative", "moderate", "growth", "aggressive"];
-
 const STRATEGIES: StrategyPreference[] = [
   "capital-growth", "cash-flow", "balanced", "value-add", "unsure",
 ];
-
 const PROPERTY_TYPES: PropertyType[] = [
   "house", "townhouse", "unit-apartment", "duplex", "land", "commercial", "other",
 ];
-
 const OWNERSHIP_STRUCTURES: OwnershipStructure[] = [
   "personal", "joint-personal", "family-trust", "unit-trust", "company", "smsf", "unknown",
 ];
-
 const EXPERIENCE_LEVELS: ExperienceLevel[] = [
   "beginner", "some-knowledge", "owner-occupier", "novice-investor", "experienced", "advanced",
 ];
-
 const TAX_RATES: MarginalTaxRate[] = ["under-32.5", "32.5", "37", "45", "unknown"];
-
 const DEBT_TYPES: DebtItem["type"][] = ["car-loan", "personal-loan", "credit-card", "hecs", "other"];
-
-// ── Helpers ───────────────────────────────────────────
 
 function label(value: string): string {
   return value
@@ -75,12 +63,18 @@ function label(value: string): string {
 }
 
 const inputClass =
-  "bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-white text-right w-40 focus:outline-none focus:ring-1 focus:ring-red-500";
+  "rounded-lg px-2 py-1 text-sm text-right w-40 focus:outline-none focus:ring-1 transition-colors";
 
 const selectClass =
-  "bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-white w-40 focus:outline-none focus:ring-1 focus:ring-red-500";
+  "rounded-lg px-2 py-1 text-sm w-40 focus:outline-none focus:ring-1 transition-colors";
 
-// ── Field components ──────────────────────────────────
+const inputStyle = {
+  background: 'var(--surface-2)',
+  border: '1px solid var(--border-subtle)',
+  color: 'var(--text-primary)',
+};
+
+const focusRing = 'focus:ring-emerald-500/50';
 
 function TextRow({
   label: l,
@@ -92,13 +86,14 @@ function TextRow({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-zinc-800 last:border-0">
-      <span className="text-zinc-400 text-sm">{l}</span>
+    <div className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{l}</span>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={inputClass}
+        className={`${inputClass} ${focusRing}`}
+        style={inputStyle}
       />
     </div>
   );
@@ -118,10 +113,10 @@ function NumberRow({
   suffix?: string;
 }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-zinc-800 last:border-0">
-      <span className="text-zinc-400 text-sm">{l}</span>
+    <div className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{l}</span>
       <div className="flex items-center gap-1">
-        {prefix && <span className="text-zinc-500 text-sm">{prefix}</span>}
+        {prefix && <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{prefix}</span>}
         <input
           type="number"
           value={value ?? ""}
@@ -129,9 +124,10 @@ function NumberRow({
             const v = e.target.value;
             onChange(v === "" ? undefined : Number(v));
           }}
-          className={inputClass}
+          className={`${inputClass} ${focusRing}`}
+          style={inputStyle}
         />
-        {suffix && <span className="text-zinc-500 text-sm">{suffix}</span>}
+        {suffix && <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{suffix}</span>}
       </div>
     </div>
   );
@@ -149,12 +145,13 @@ function SelectRow<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-zinc-800 last:border-0">
-      <span className="text-zinc-400 text-sm">{l}</span>
+    <div className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{l}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className={selectClass}
+        className={`${selectClass} ${focusRing}`}
+        style={inputStyle}
       >
         {options.map((opt) => (
           <option key={opt} value={opt}>
@@ -176,26 +173,28 @@ function BoolRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-zinc-800 last:border-0">
-      <span className="text-zinc-400 text-sm">{l}</span>
+    <div className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{l}</span>
       <div className="flex gap-1">
         <button
           onClick={() => onChange(true)}
-          className={`px-3 py-1 text-xs rounded ${
-            value === true
-              ? "bg-red-600 text-white"
-              : "bg-zinc-800 text-zinc-400 border border-zinc-700"
-          }`}
+          className="px-3 py-1 text-xs rounded-md transition-colors"
+          style={{
+            background: value === true ? 'var(--primary)' : 'var(--surface-2)',
+            color: value === true ? 'white' : 'var(--text-secondary)',
+            border: value === true ? 'none' : '1px solid var(--border-subtle)',
+          }}
         >
           Yes
         </button>
         <button
           onClick={() => onChange(false)}
-          className={`px-3 py-1 text-xs rounded ${
-            value === false
-              ? "bg-red-600 text-white"
-              : "bg-zinc-800 text-zinc-400 border border-zinc-700"
-          }`}
+          className="px-3 py-1 text-xs rounded-md transition-colors"
+          style={{
+            background: value === false ? 'var(--primary)' : 'var(--surface-2)',
+            color: value === false ? 'white' : 'var(--text-secondary)',
+            border: value === false ? 'none' : '1px solid var(--border-subtle)',
+          }}
         >
           No
         </button>
@@ -207,10 +206,10 @@ function BoolRow({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6 last:mb-0">
-      <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-3">
+      <h3 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>
         {title}
       </h3>
-      <div className="bg-zinc-800/50 rounded-lg px-4 py-2">{children}</div>
+      <div className="rounded-lg px-4 py-2" style={{ background: 'var(--surface-2)' }}>{children}</div>
     </div>
   );
 }
@@ -223,13 +222,14 @@ function EditableDebtRow({
   onChange: (d: DebtItem) => void;
 }) {
   return (
-    <div className="py-2 border-b border-zinc-800 last:border-0 space-y-1.5">
+    <div className="py-2 space-y-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Type</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Type</span>
         <select
           value={debt.type}
           onChange={(e) => onChange({ ...debt, type: e.target.value as DebtItem["type"] })}
-          className={selectClass}
+          className={`${selectClass} ${focusRing}`}
+          style={inputStyle}
         >
           {DEBT_TYPES.map((t) => (
             <option key={t} value={t}>{label(t)}</option>
@@ -237,26 +237,28 @@ function EditableDebtRow({
         </select>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Balance</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Balance</span>
         <div className="flex items-center gap-1">
-          <span className="text-zinc-500 text-sm">$</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
           <input
             type="number"
             value={debt.balance ?? ""}
             onChange={(e) => onChange({ ...debt, balance: e.target.value === "" ? undefined : Number(e.target.value) })}
-            className={inputClass}
+            className={`${inputClass} ${focusRing}`}
+            style={inputStyle}
           />
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Monthly repayment</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Monthly repayment</span>
         <div className="flex items-center gap-1">
-          <span className="text-zinc-500 text-sm">$</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
           <input
             type="number"
             value={debt.monthlyRepayment ?? ""}
             onChange={(e) => onChange({ ...debt, monthlyRepayment: e.target.value === "" ? undefined : Number(e.target.value) })}
-            className={inputClass}
+            className={`${inputClass} ${focusRing}`}
+            style={inputStyle}
           />
         </div>
       </div>
@@ -278,25 +280,27 @@ function EditablePropertyRow({
   }
 
   return (
-    <div className="py-2 border-b border-zinc-800 last:border-0 space-y-1.5">
-      <div className="text-xs text-zinc-500 uppercase tracking-wider">
+    <div className="py-2 space-y-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <div className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
         Property {index + 1}
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Location</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Location</span>
         <input
           type="text"
           value={property.location ?? ""}
           onChange={(e) => upd("location", e.target.value || undefined)}
-          className={inputClass}
+          className={`${inputClass} ${focusRing}`}
+          style={inputStyle}
         />
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Type</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Type</span>
         <select
           value={property.type ?? "house"}
           onChange={(e) => upd("type", e.target.value)}
-          className={selectClass}
+          className={`${selectClass} ${focusRing}`}
+          style={inputStyle}
         >
           {PROPERTY_TYPES.map((t) => (
             <option key={t} value={t}>{label(t)}</option>
@@ -304,47 +308,51 @@ function EditablePropertyRow({
         </select>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Value</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Value</span>
         <div className="flex items-center gap-1">
-          <span className="text-zinc-500 text-sm">$</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
           <input
             type="number"
             value={property.currentValue ?? ""}
             onChange={(e) => upd("currentValue", e.target.value === "" ? undefined : Number(e.target.value))}
-            className={inputClass}
+            className={`${inputClass} ${focusRing}`}
+            style={inputStyle}
           />
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Mortgage</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Mortgage</span>
         <div className="flex items-center gap-1">
-          <span className="text-zinc-500 text-sm">$</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
           <input
             type="number"
             value={property.mortgageOwing ?? ""}
             onChange={(e) => upd("mortgageOwing", e.target.value === "" ? undefined : Number(e.target.value))}
-            className={inputClass}
+            className={`${inputClass} ${focusRing}`}
+            style={inputStyle}
           />
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Weekly rent</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Weekly rent</span>
         <div className="flex items-center gap-1">
-          <span className="text-zinc-500 text-sm">$</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
           <input
             type="number"
             value={property.weeklyRent ?? ""}
             onChange={(e) => upd("weeklyRent", e.target.value === "" ? undefined : Number(e.target.value))}
-            className={inputClass}
+            className={`${inputClass} ${focusRing}`}
+            style={inputStyle}
           />
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Structure</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Structure</span>
         <select
           value={property.ownershipStructure ?? "personal"}
           onChange={(e) => upd("ownershipStructure", e.target.value)}
-          className={selectClass}
+          className={`${selectClass} ${focusRing}`}
+          style={inputStyle}
         >
           {OWNERSHIP_STRUCTURES.map((s) => (
             <option key={s} value={s}>{label(s)}</option>
@@ -352,31 +360,31 @@ function EditablePropertyRow({
         </select>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Year purchased</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Year purchased</span>
         <input
           type="number"
           value={property.yearPurchased ?? ""}
           onChange={(e) => upd("yearPurchased", e.target.value === "" ? undefined : Number(e.target.value))}
-          className={inputClass}
+          className={`${inputClass} ${focusRing}`}
+          style={inputStyle}
         />
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-sm">Purchase price</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Purchase price</span>
         <div className="flex items-center gap-1">
-          <span className="text-zinc-500 text-sm">$</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
           <input
             type="number"
             value={property.purchasePrice ?? ""}
             onChange={(e) => upd("purchasePrice", e.target.value === "" ? undefined : Number(e.target.value))}
-            className={inputClass}
+            className={`${inputClass} ${focusRing}`}
+            style={inputStyle}
           />
         </div>
       </div>
     </div>
   );
 }
-
-// ── Main component ────────────────────────────────────
 
 export default function ProfileModal({ profile, onSave, onClose }: ProfileModalProps) {
   const [draft, setDraft] = useState<ClientProfile>(() => structuredClone(profile));
@@ -417,26 +425,33 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div
+        className="rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        style={{
+          background: 'var(--surface-0)',
+          border: '1px solid var(--border-default)',
+        }}
+      >
         {/* Header */}
-        <div className="border-b border-zinc-700 px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h2 className="text-lg font-semibold text-white">My Financial Position</h2>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white text-xl leading-none"
+            className="p-1 rounded-lg transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            &times;
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {/* Personal */}
           <Section title="Personal">
             <TextRow label="Name" value={personal.firstName} onChange={(v) => upd("personal", "firstName", v)} />
             <NumberRow label="Age" value={personal.age} onChange={(v) => upd("personal", "age", v)} />
@@ -446,7 +461,6 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             <NumberRow label="Partner income" value={personal.partnerIncome} onChange={(v) => upd("personal", "partnerIncome", v)} prefix="$" />
           </Section>
 
-          {/* Income & Employment */}
           <Section title="Income & Employment">
             <NumberRow label="Gross annual income" value={employment.grossAnnualIncome} onChange={(v) => upd("employment", "grossAnnualIncome", v ?? 0)} prefix="$" />
             <SelectRow label="Employment type" value={employment.employmentType} options={EMPLOYMENT_TYPES} onChange={(v) => upd("employment", "employmentType", v)} />
@@ -459,7 +473,6 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             <NumberRow label="Other income amount" value={employment.otherIncomeAmount} onChange={(v) => upd("employment", "otherIncomeAmount", v)} prefix="$" />
           </Section>
 
-          {/* Financial Position */}
           <Section title="Financial Position">
             <NumberRow label="Cash savings" value={financial.cashSavings} onChange={(v) => upd("financial", "cashSavings", v)} prefix="$" />
             <NumberRow label="Monthly expenses" value={financial.monthlyExpenses} onChange={(v) => upd("financial", "monthlyExpenses", v)} prefix="$" />
@@ -468,8 +481,8 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             <BoolRow label="Has broker" value={financial.hasBroker} onChange={(v) => upd("financial", "hasBroker", v)} />
             <BoolRow label="Pre-approval" value={financial.hasPreApproval} onChange={(v) => upd("financial", "hasPreApproval", v)} />
             {financial.existingDebts && financial.existingDebts.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-zinc-700">
-                <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Debts</div>
+              <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Debts</div>
                 {financial.existingDebts.map((d, i) => (
                   <EditableDebtRow key={i} debt={d} onChange={(updated) => updDebt(i, updated)} />
                 ))}
@@ -477,7 +490,6 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             )}
           </Section>
 
-          {/* Property Portfolio */}
           <Section title="Property Portfolio">
             <BoolRow label="Owns home" value={portfolio.ownsHome} onChange={(v) => upd("portfolio", "ownsHome", v)} />
             {portfolio.ownsHome && (
@@ -488,8 +500,8 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             )}
             <NumberRow label="Total equity" value={portfolio.totalEquity} onChange={(v) => upd("portfolio", "totalEquity", v)} prefix="$" />
             {portfolio.investmentProperties.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-zinc-700">
-                <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Investment Properties</div>
+              <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Investment Properties</div>
                 {portfolio.investmentProperties.map((p, i) => (
                   <EditablePropertyRow key={i} property={p} index={i} onChange={(updated) => updProperty(i, updated)} />
                 ))}
@@ -497,7 +509,6 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             )}
           </Section>
 
-          {/* Investment Goals */}
           <Section title="Investment Goals">
             <SelectRow label="Primary goal" value={goals.primaryGoal} options={GOAL_TYPES} onChange={(v) => upd("goals", "primaryGoal", v)} />
             <TextRow label="Goal detail" value={goals.goalDetail ?? ""} onChange={(v) => upd("goals", "goalDetail", v || undefined)} />
@@ -508,7 +519,6 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             <NumberRow label="Budget for next purchase" value={goals.budgetForNextPurchase} onChange={(v) => upd("goals", "budgetForNextPurchase", v)} prefix="$" />
           </Section>
 
-          {/* Location Preferences */}
           <Section title="Location Preferences">
             <TextRow
               label="Preferred states"
@@ -544,7 +554,6 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             />
           </Section>
 
-          {/* Tax & Structure */}
           <Section title="Tax & Structure">
             <SelectRow
               label="Marginal tax rate"
@@ -582,7 +591,6 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             )}
           </Section>
 
-          {/* Experience */}
           <Section title="Experience">
             <SelectRow
               label="Level"
@@ -602,8 +610,8 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             />
           </Section>
 
-          {/* Completeness (read-only) */}
-          <div className="mt-6 pt-4 border-t border-zinc-700">
+          {/* Completeness */}
+          <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             {(() => {
               const pct = draft.completenessScore > 1
                 ? Math.min(draft.completenessScore, 100)
@@ -611,13 +619,13 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
               return (
                 <>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-zinc-400">Profile completeness</span>
+                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Profile completeness</span>
                     <span className="text-sm font-medium text-white">{pct}%</span>
                   </div>
-                  <div className="w-full bg-zinc-800 rounded-full h-2">
+                  <div className="w-full rounded-full h-2" style={{ background: 'var(--surface-3)' }}>
                     <div
-                      className="bg-red-500 h-2 rounded-full transition-all"
-                      style={{ width: `${pct}%` }}
+                      className="h-2 rounded-full transition-all"
+                      style={{ width: `${pct}%`, background: 'var(--primary)' }}
                     />
                   </div>
                 </>
@@ -625,14 +633,18 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
             })()}
             {draft.dataGaps.length > 0 && (
               <div className="mt-3">
-                <p className="text-xs text-zinc-500 mb-1">
+                <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
                   Talk to Ben to fill in these gaps:
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {draft.dataGaps.map((gap, i) => (
                     <span
                       key={i}
-                      className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full"
+                      className="text-xs px-2 py-0.5 rounded-full"
+                      style={{
+                        background: 'var(--surface-2)',
+                        color: 'var(--text-secondary)',
+                      }}
                     >
                       {gap}
                     </span>
@@ -644,16 +656,21 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
         </div>
 
         {/* Footer */}
-        <div className="border-t border-zinc-700 px-6 py-4 flex justify-end gap-3 flex-shrink-0">
+        <div className="px-6 py-4 flex justify-end gap-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+            className="px-4 py-2 text-sm transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+            className="px-5 py-2 text-sm text-white rounded-lg font-medium transition-all"
+            style={{
+              background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+            }}
           >
             Save Changes
           </button>

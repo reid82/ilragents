@@ -257,18 +257,18 @@ export async function POST(req: NextRequest) {
             content: query,
           });
 
-          // Save assistant message (with sources)
-          await supabase.from("conversation_messages").insert({
+          // Save assistant message (with sources) and capture its ID
+          const { data: assistantMsg } = await supabase.from("conversation_messages").insert({
             conversation_id: conversationId,
             role: "assistant",
             content: assistantText,
             sources: sourcesPayload,
-          });
+          }).select('id').single();
 
           // Auto-title the conversation if it still has the default title
           const { data: convo } = await supabase
             .from("conversations")
-            .select("title")
+            .select("title, user_id")
             .eq("id", conversationId)
             .single();
 
@@ -278,6 +278,26 @@ export async function POST(req: NextRequest) {
               .from("conversations")
               .update({ title: autoTitle })
               .eq("id", conversationId);
+          }
+
+          // Fire-and-forget: eval pipeline + analytics
+          if (assistantMsg?.id && convo?.user_id) {
+            import("@/lib/eval-pipeline").then(({ triggerEval }) => {
+              triggerEval({
+                messageId: assistantMsg.id,
+                conversationId,
+                userId: convo.user_id,
+                query,
+                assistantText,
+                sources: sourcesPayload,
+              }).catch(console.error);
+            }).catch(console.error);
+
+            import("@/lib/analytics").then(({ upsertUsageAnalytics }) => {
+              upsertUsageAnalytics({
+                userId: convo.user_id,
+              }).catch(console.error);
+            }).catch(console.error);
           }
         } catch (persistError) {
           console.error("Failed to persist conversation messages:", persistError);

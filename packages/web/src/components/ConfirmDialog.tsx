@@ -21,29 +21,39 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
       onClick={onCancel}
     >
       <div
-        className="bg-zinc-900 border border-zinc-700 rounded-xl max-w-sm w-full p-6"
+        className="rounded-xl max-w-sm w-full p-6"
+        style={{
+          background: 'var(--surface-0)',
+          border: '1px solid var(--border-default)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-        <p className="text-sm text-zinc-400 leading-relaxed mb-6">{message}</p>
+        <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--text-secondary)' }}>{message}</p>
         <div className="flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
-            className="text-sm text-zinc-400 hover:text-white px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-800 transition-colors"
+            className="text-sm px-4 py-2 rounded-lg transition-colors"
+            style={{
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-subtle)',
+            }}
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
-              variant === "danger"
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-red-600 hover:bg-red-700 text-white"
-            }`}
+            className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
+            style={{
+              background: variant === "danger"
+                ? '#dc2626'
+                : 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
+            }}
           >
             {confirmLabel}
           </button>

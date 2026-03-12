@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface Persona {
@@ -14,12 +15,23 @@ interface Persona {
   elevenlabs_agent_id: string | null;
 }
 
+interface SuggestionData {
+  id: string;
+  description: string;
+  suggested_fix: string;
+  category: string;
+}
+
 export default function PersonasAdminPage() {
+  const searchParams = useSearchParams();
+  const suggestionId = searchParams.get('suggestion');
+
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [selected, setSelected] = useState<Persona | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [suggestion, setSuggestion] = useState<SuggestionData | null>(null);
 
   // Editable fields
   const [systemPromptOverride, setSystemPromptOverride] = useState('');
@@ -30,6 +42,26 @@ export default function PersonasAdminPage() {
   useEffect(() => {
     fetchPersonas();
   }, []);
+
+  // Load suggestion if query param present
+  useEffect(() => {
+    if (suggestionId) {
+      fetch(`/api/admin/suggestions/${suggestionId}`)
+        .then(r => r.json())
+        .then(data => {
+          setSuggestion(data);
+        })
+        .catch(console.error);
+    }
+  }, [suggestionId]);
+
+  // Auto-select ILR Advisor when suggestion loads and personas are available
+  useEffect(() => {
+    if (suggestion && personas.length > 0 && !selected) {
+      const advisor = personas.find(p => p.agent_name === 'ILR Property Advisor');
+      if (advisor) selectPersona(advisor);
+    }
+  }, [suggestion, personas, selected]);
 
   async function fetchPersonas() {
     try {
@@ -78,6 +110,16 @@ export default function PersonasAdminPage() {
         );
         setSelected(updated);
         setFeedback({ type: 'success', message: 'Saved' });
+
+        // Mark suggestion as applied if one was loaded
+        if (suggestion) {
+          await fetch(`/api/admin/suggestions/${suggestion.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'applied' }),
+          }).catch(console.error);
+          setSuggestion(null);
+        }
       } else {
         throw new Error('Save failed');
       }
@@ -105,19 +147,16 @@ export default function PersonasAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center gap-4">
-        <Link href="/" className="text-zinc-400 hover:text-white transition-colors">
-          &larr; Back
-        </Link>
-        <h1 className="font-semibold text-lg flex-1">Persona Editor</h1>
+    <div className="flex flex-col h-[calc(100vh-120px)]">
+      <div className="border-b border-zinc-800 px-6 py-3 flex items-center justify-between">
+        <h2 className="font-semibold">Persona Editor</h2>
         <button
           onClick={handleSeed}
           className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm transition-colors"
         >
           Seed / Reset
         </button>
-      </header>
+      </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel - agent list */}
@@ -160,6 +199,19 @@ export default function PersonasAdminPage() {
                 <h2 className="text-xl font-bold">{selected.agent_name}</h2>
                 <p className="text-zinc-400 text-sm">{selected.domain}</p>
               </div>
+
+              {suggestion && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-2">
+                  <p className="text-amber-400 text-sm font-medium">Suggestion: {suggestion.description}</p>
+                  <p className="text-amber-300/70 text-sm">{suggestion.suggested_fix}</p>
+                  <button
+                    onClick={() => setSuggestion(null)}
+                    className="text-xs text-zinc-500 hover:text-zinc-300"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-2">

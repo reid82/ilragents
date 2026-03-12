@@ -114,7 +114,8 @@ export default function FeedbackButton({
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute bottom-full right-0 mb-2 w-72 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50"
+          className="absolute bottom-full right-0 mb-2 w-72 rounded-lg shadow-xl z-50"
+          style={{ background: 'var(--surface-0)', border: '1px solid var(--border-default)' }}
         >
           <div className="p-3">
             <textarea
@@ -124,7 +125,7 @@ export default function FeedbackButton({
               onKeyDown={handleKeyDown}
               placeholder="What's wrong with this response?"
               rows={3}
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-red-500 resize-none"
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 resize-none"
             />
             <div className="flex items-center justify-between mt-2">
               <span className="text-[10px] text-zinc-500">
@@ -133,7 +134,8 @@ export default function FeedbackButton({
               <button
                 onClick={handleSubmit}
                 disabled={!comment.trim() || status === 'sending'}
-                className="text-xs bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md transition-colors"
+                className="text-xs disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md transition-colors"
+                style={{ background: 'var(--primary)' }}
               >
                 {status === 'sending' ? 'Sending...' : 'Submit'}
               </button>

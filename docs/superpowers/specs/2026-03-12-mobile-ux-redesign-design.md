@@ -12,6 +12,8 @@ ILR Advisor is a client-facing AI property investment advisor. The chat experien
 
 The existing codebase uses Next.js 16, React 19, Tailwind CSS 4, and custom components (no UI library). The dark theme with emerald accent is established. The current mobile experience has basic responsiveness but lacks native-feeling interactions, proper touch patterns, and optimised layouts.
 
+**Canonical app name:** "ILR Advisor" -- used in headers, login, welcome screen. The existing codebase uses inconsistent names ("ILR Property Advisor" in layout.tsx, "Property Advisor" in ConversationSidebar.tsx). All instances should be updated to "ILR Advisor" as part of this redesign.
+
 ---
 
 ## Responsive Breakpoints
@@ -61,12 +63,12 @@ The current mobile navigation uses a hamburger menu in `layout.tsx` that trigger
 - Search input below header
 - Conversation list with time-based grouping (Today, Yesterday, Last 7 Days, Older) -- matches existing grouping logic in `ConversationSidebar.tsx`
 - Active conversation: emerald left border + green tint background
-- Footer: Profile avatar + name + "View profile" link + "Roadmap" button
+- Footer: Profile avatar (32px, updated from current 30px for consistency) + name + "View profile" link + "Roadmap" button
 - Border right: 1px solid `var(--border-subtle)`
 
 **Chat header (simplified):**
 - Shows conversation title + "Started today at [time]" subtitle
-- Right: Format selector (Concise/Standard/Detailed) + "Export" button
+- Right: Format selector (Concise/Standard/Detailed) + "Export" button (renders as disabled/placeholder -- export functionality is out of scope for this redesign)
 - No logo/branding (lives in sidebar)
 
 ---
@@ -104,7 +106,9 @@ The current mobile navigation uses a hamburger menu in `layout.tsx` that trigger
 
 **Date dividers:**
 - Centered text, color `var(--text-muted)`, font-size 11px
-- "Today", "Yesterday", or date format
+- Labels: "Today", "Yesterday", or formatted date (e.g. "10 March 2026") for older messages
+- Insert a divider when consecutive messages span different calendar days (compare message timestamps)
+- This is new functionality -- the current codebase does not have in-chat date dividers
 
 **Message spacing:** 16px gap between messages (iPhone), 18px (tablet)
 
@@ -312,7 +316,7 @@ The existing onboarding page redesigned for mobile with these additions:
 ### Form
 - Labels: 13px, medium weight, muted color, 6px margin-bottom
 - Inputs: 14px vertical padding, 16px horizontal, 12px border-radius
-- Background: `rgba(255,255,255,0.04)`, border: `rgba(255,255,255,0.08)`
+- Background: `var(--surface-2)`, border: `var(--border-default)`
 - Gap between fields: 14px
 - CTA: Full-width emerald gradient, 16px padding, 15px font, 12px border-radius
 - Sign-up link: centered below CTA, emerald text for "Sign up"
@@ -393,6 +397,18 @@ The existing roadmap page already has mobile support (dropdown nav on mobile, si
 - `login/page.tsx` - Centered layout, input sizing, keyboard handling
 - `globals.css` - Safe area variables, new animations, touch target utilities
 
+### Z-Index Stacking Order
+
+| Layer | z-index | Element |
+|---|---|---|
+| Base | 0 | Chat messages, input area |
+| FAB | 10 | Scroll-to-bottom button |
+| Header | 20 | Compact mobile header |
+| Sticky CTA | 20 | Welcome screen bottom CTA |
+| Bottom sheet backdrop | 40 | Dark overlay behind sheet |
+| Bottom sheet | 50 | The sheet itself |
+| Context menu | 60 | Long-press message menu |
+
 ### New Components
 - `BottomSheet.tsx` - Reusable bottom sheet with drag handle, snap points, spring animation, backdrop
 - `ScrollToBottomFAB.tsx` - Floating action button with unread count badge
@@ -426,6 +442,6 @@ Login -> Sign Up -> Welcome Screen (video + checklist) -> Onboarding Interview (
                                                                                                                               |
                                                                                                                     Roadmap (via header button)
                                                                                                                     Profile (via avatar)
-                                                                                                                    History (via chip / swipe -> bottom sheet)
+                                                                                                                    History (via chip -> bottom sheet)
                                                                                                                     New Chat (via chip)
 ```

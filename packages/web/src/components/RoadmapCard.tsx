@@ -154,56 +154,56 @@ export default function RoadmapCard({ isOnboarded, onStartChat }: RoadmapCardPro
   if (status === 'completed') {
     return (
       <div
-        className="rounded-xl p-5"
+        className="rounded-xl p-3 sm:p-5"
         style={{
           background: 'linear-gradient(135deg, var(--primary-glow), var(--primary-subtle))',
           border: '1px solid rgba(16, 185, 129, 0.2)',
         }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: 'var(--primary-glow)' }}
             >
-              <FileText className="w-5 h-5" style={{ color: 'var(--primary-light)' }} />
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--primary-light)' }} />
             </div>
-            <div>
-              <h3 className="font-semibold text-white">My Roadmap</h3>
-              <p className="text-xs" style={{ color: 'var(--primary-light)' }}>Your personalised investment roadmap is ready</p>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-white text-sm">My Roadmap</h3>
+              <p className="text-xs truncate" style={{ color: 'var(--primary-light)' }}>Roadmap ready</p>
             </div>
           </div>
-          {reportData && (
-            <div className="hidden sm:flex items-center gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <span>Score: <span className="font-medium" style={{ color: 'var(--primary-light)' }}>{reportData.investorScore}/100</span></span>
-              <span>Strategy: <span className="font-medium capitalize" style={{ color: 'var(--primary-light)' }}>{reportData.strategyType}</span></span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/roadmap"
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+              style={{
+                background: 'var(--primary-glow)',
+                color: 'var(--primary-light)',
+              }}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              View
+            </Link>
+            <button
+              onClick={() => onStartChat?.(REFINE_PROMPT)}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+              style={{
+                background: 'var(--surface-2)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              Refine
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3 mt-4">
-          <Link
-            href="/roadmap"
-            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            style={{
-              background: 'var(--primary-glow)',
-              color: 'var(--primary-light)',
-            }}
-          >
-            <FileText className="w-4 h-4" />
-            View Roadmap
-          </Link>
-          <button
-            onClick={() => onStartChat?.(REFINE_PROMPT)}
-            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            style={{
-              background: 'var(--surface-2)',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <MessageSquare className="w-4 h-4" />
-            Discuss &amp; Refine
-          </button>
-        </div>
+        {reportData && (
+          <div className="hidden sm:flex items-center gap-4 text-xs mt-3" style={{ color: 'var(--text-secondary)' }}>
+            <span>Score: <span className="font-medium" style={{ color: 'var(--primary-light)' }}>{reportData.investorScore}/100</span></span>
+            <span>Strategy: <span className="font-medium capitalize" style={{ color: 'var(--primary-light)' }}>{reportData.strategyType}</span></span>
+          </div>
+        )}
       </div>
     );
   }

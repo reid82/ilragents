@@ -11,6 +11,7 @@ import { useClientProfileStore } from '@/lib/stores/financial-store';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { useRoadmapStore } from '@/lib/stores/roadmap-store';
 import { useRoadmapGeneration } from '@/hooks/useRoadmapGeneration';
+import QuickReplyChips from "@/components/QuickReplyChips";
 
 interface Message {
   role: 'user' | 'assistant';
@@ -49,6 +50,20 @@ function clearOnboardingProgress() {
   }
 }
 
+const STEP_KEYWORDS = [
+  { keywords: ["financial position", "income", "employment", "savings"], step: 1 },
+  { keywords: ["goal", "timeline", "objective", "target"], step: 2 },
+  { keywords: ["risk", "tolerance", "comfortable", "appetite"], step: 3 },
+  { keywords: ["portfolio", "property", "properties", "own"], step: 4 },
+];
+
+const CHIP_OPTIONS: Record<string, string[]> = {
+  "investment goal": ["Build long-term wealth", "Generate passive income", "Retirement planning", "Portfolio diversification"],
+  "risk": ["Conservative", "Moderate", "Aggressive"],
+  "experience": ["Complete beginner", "Some knowledge", "Experienced investor"],
+  "timeline": ["1-3 years", "3-5 years", "5-10 years", "10+ years"],
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
   const setOnboarded = useSessionStore((s) => s.setOnboarded);
@@ -64,8 +79,9 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasInitialized = useRef(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -232,6 +248,19 @@ export default function OnboardingPage() {
     [isLoading, handleOnboardingComplete]
   );
 
+  useEffect(() => {
+    const lastAssistantMsg = messages.filter(m => m.role === "assistant").pop();
+    if (lastAssistantMsg && lastAssistantMsg.content) {
+      const content = lastAssistantMsg.content.toLowerCase();
+      for (const { keywords, step } of STEP_KEYWORDS) {
+        if (keywords.some(kw => content.includes(kw))) {
+          setCurrentStep(step);
+          break;
+        }
+      }
+    }
+  }, [messages]);
+
   // Restore saved progress or start fresh
   useEffect(() => {
     if (hasInitialized.current) return;
@@ -245,25 +274,31 @@ export default function OnboardingPage() {
     }
   }, [sendMessage]);
 
-  function handleSend() {
-    if (!input.trim() || isLoading) return;
-    const msg = input.trim();
+  function handleSend(overrideMessage?: string) {
+    const trimmed = (overrideMessage || input).trim();
+    if (!trimmed || isLoading) return;
+    const msg = trimmed;
     setInput('');
     sendMessage(msg, messages);
   }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
-      <header className="border-b border-zinc-800 px-4 sm:px-6 py-4">
+      <header className="px-4 sm:px-6 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
         <div className="max-w-3xl mx-auto flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-white rounded-lg px-2.5 py-1 flex-shrink-0">
               <Image src="/ilre-logo.png" alt="I Love Real Estate" width={100} height={47} className="h-7 w-auto" />
             </div>
-            <p className="text-zinc-400 text-sm">
-              Let Baseline Ben learn about your financial position to personalise
-              your experience.
-            </p>
+            <div>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Let Baseline Ben learn about your financial position to personalise
+                your experience.
+              </p>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Step {currentStep} of 4
+              </span>
+            </div>
           </div>
           <Link
             href="/"
@@ -273,19 +308,33 @@ export default function OnboardingPage() {
           </Link>
         </div>
       </header>
+      {/* Progress bar */}
+      <div className="relative" style={{ height: "3px", background: "var(--surface-3)" }}>
+        <div
+          className="absolute left-0 top-0 h-full transition-all duration-300 ease-out"
+          style={{
+            width: `${(currentStep / 4) * 100}%`,
+            background: "linear-gradient(90deg, var(--primary), var(--primary-light))",
+          }}
+        />
+      </div>
 
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6 max-w-3xl mx-auto w-full">
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
           >
             <div
-              className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-5 py-3 ${
+              className={`max-w-[80%] lg:max-w-[70%] px-5 py-3 ${
                 msg.role === 'user'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-zinc-800/80 text-zinc-100'
+                  ? 'text-white'
+                  : 'text-zinc-100'
               }`}
+              style={msg.role === 'user'
+                ? { background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))', boxShadow: '0 2px 12px rgba(16, 185, 129, 0.2)', borderRadius: '18px 4px 18px 18px' }
+                : { background: 'var(--surface-message)', border: '1px solid var(--border-message)', borderRadius: '4px 18px 18px 18px' }
+              }
             >
               {msg.role === 'assistant' ? (
                 <div className="prose prose-sm prose-invert max-w-none">
@@ -303,6 +352,22 @@ export default function OnboardingPage() {
                 </div>
               )}
             </div>
+            {msg.role === "assistant" && (() => {
+              const content = msg.content.toLowerCase();
+              const matchingKey = Object.keys(CHIP_OPTIONS).find(key => content.includes(key));
+              if (matchingKey && i === messages.length - 1 && !isLoading) {
+                return (
+                  <QuickReplyChips
+                    options={CHIP_OPTIONS[matchingKey]}
+                    onSelect={(value) => {
+                      setInput(value);
+                      setTimeout(() => handleSend(value), 100);
+                    }}
+                  />
+                );
+              }
+              return null;
+            })()}
           </div>
         ))}
         {isExtracting && (
@@ -313,7 +378,7 @@ export default function OnboardingPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-zinc-800 px-4 sm:px-6 py-4 pb-12">
+      <div className="px-4 sm:px-6 py-4 pb-safe" style={{ borderTop: "1px solid var(--border-subtle)" }}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -321,20 +386,32 @@ export default function OnboardingPage() {
           }}
           className="flex gap-3 max-w-3xl mx-auto"
         >
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder="Tell Ben about your situation..."
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            rows={1}
+            className="flex-1 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent resize-none"
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border-default)",
+              maxHeight: "100px",
+            }}
             disabled={isExtracting}
             autoFocus
           />
           <button
             type="submit"
             disabled={isLoading || isExtracting || !input.trim()}
-            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
+            className="disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
+            style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))' }}
           >
             {isLoading ? '...' : 'Send'}
           </button>

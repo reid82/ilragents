@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { MessageSquare } from "lucide-react";
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
@@ -46,7 +46,7 @@ export default function LoginPage() {
 
         // Create user_profiles row via service key
         // (AuthProvider will handle loading profile on auth state change)
-        router.push('/onboarding');
+        router.push('/onboarding/welcome');
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -65,20 +65,35 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-8 pb-safe" style={{ background: "var(--surface-0)", color: "var(--text-primary)" }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-block bg-white rounded-lg px-4 py-2 mb-3">
-            <Image src="/ilre-logo.png" alt="I Love Real Estate" width={150} height={70} className="h-10 w-auto" />
+          <div
+            className="inline-flex items-center justify-center mx-auto"
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "14px",
+              background: "linear-gradient(135deg, var(--primary), var(--primary-hover))",
+              boxShadow: "0 8px 32px rgba(16, 185, 129, 0.2)",
+            }}
+          >
+            <MessageSquare className="w-6 h-6 text-white" />
           </div>
-          <p className="text-zinc-400 text-sm">
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+          <h1
+            className="text-2xl font-bold mt-4"
+            style={{ color: "var(--text-primary)" }}
+          >
+            ILR Advisor
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+            {isSignUp ? "Create your account" : "Your AI property investment advisor"}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label htmlFor="email" className="block text-sm text-zinc-400 mb-1">
+            <label htmlFor="email" className="block text-[13px] font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
               Email
             </label>
             <input
@@ -87,13 +102,14 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full rounded-xl px-4 py-3.5 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border-default)" }}
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm text-zinc-400 mb-1">
+            <label htmlFor="password" className="block text-[13px] font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
               Password
             </label>
             <input
@@ -103,7 +119,8 @@ export default function LoginPage() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full rounded-xl px-4 py-3.5 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border-default)" }}
               placeholder="At least 6 characters"
             />
           </div>
@@ -117,7 +134,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-lg font-medium transition-colors"
+            className="w-full disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl text-[15px] font-semibold transition-colors"
+            style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))' }}
           >
             {loading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </button>
@@ -129,11 +147,11 @@ export default function LoginPage() {
               setIsSignUp(!isSignUp);
               setError(null);
             }}
-            className="text-sm text-zinc-400 hover:text-white transition-colors"
+            className="text-sm transition-colors" style={{ color: "var(--text-secondary)" }}
           >
             {isSignUp
-              ? 'Already have an account? Sign in'
-              : "Don't have an account? Sign up"}
+              ? <>Already have an account? <span style={{ color: "var(--primary)" }}>Sign in</span></>
+              : <>Don&apos;t have an account? <span style={{ color: "var(--primary)" }}>Sign up</span></>}
           </button>
         </div>
 

@@ -54,6 +54,13 @@ export async function GET(
       .eq('id', conversation.user_id)
       .single();
 
+    // Fallback to auth.users email if no user_profiles row
+    let userName = profile?.display_name || profile?.email || null;
+    if (!userName && conversation.user_id) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(conversation.user_id);
+      userName = authUser?.user?.email || 'Unknown';
+    }
+
     // Enrich messages with evals
     const enrichedMessages = (messages || []).map((msg) => ({
       ...msg,
@@ -62,7 +69,7 @@ export async function GET(
 
     return NextResponse.json({
       ...conversation,
-      user_name: profile?.display_name || profile?.email || 'Unknown',
+      user_name: userName,
       messages: enrichedMessages,
     });
   } catch (error) {

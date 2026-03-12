@@ -44,6 +44,13 @@ export async function GET(req: NextRequest) {
             .eq('conversation_id', convo.id),
         ]);
 
+        // Fallback to auth.users email if no user_profiles row
+        let userName = profile?.display_name || profile?.email || null;
+        if (!userName && convo.user_id) {
+          const { data: authUser } = await supabase.auth.admin.getUserById(convo.user_id);
+          userName = authUser?.user?.email || 'Unknown';
+        }
+
         const avgScore = evals && evals.length > 0
           ? evals.reduce((sum, e) => sum + (e.overall_score || 0), 0) / evals.length
           : null;
@@ -51,7 +58,7 @@ export async function GET(req: NextRequest) {
         return {
           ...convo,
           message_count: messageCount || 0,
-          user_name: profile?.display_name || profile?.email || 'Unknown',
+          user_name: userName,
           avg_eval_score: avgScore ? Math.round(avgScore * 100) / 100 : null,
         };
       })

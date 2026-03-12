@@ -11,6 +11,7 @@ export default function LoginPage() {
   const user = useAuthStore((s) => s.user);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,8 +45,13 @@ export default function LoginPage() {
         });
         if (signUpError) throw signUpError;
 
-        // Create user_profiles row via service key
-        // (AuthProvider will handle loading profile on auth state change)
+        // Create user_profiles row with display name
+        await fetch('/api/user/ensure-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ display_name: fullName.trim() || undefined }),
+        });
+
         router.push('/onboarding/welcome');
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -54,7 +60,13 @@ export default function LoginPage() {
         });
         if (signInError) throw signInError;
 
-        // AuthProvider will detect the session and load profile
+        // Ensure profile exists for returning users (backfill)
+        await fetch('/api/user/ensure-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+
         router.push('/');
       }
     } catch (err) {
@@ -92,6 +104,24 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
+          {isSignUp && (
+            <div>
+              <label htmlFor="fullName" className="block text-[13px] font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
+                Full Name
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full rounded-xl px-4 py-3.5 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border-default)" }}
+                placeholder="Your full name"
+              />
+            </div>
+          )}
+
           <div>
             <label htmlFor="email" className="block text-[13px] font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
               Email

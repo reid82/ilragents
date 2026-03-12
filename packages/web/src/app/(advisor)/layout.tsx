@@ -60,8 +60,6 @@ export default function AdvisorLayout({ children }: { children: React.ReactNode 
       {/* Desktop sidebar -- hidden below 1024px */}
       <div className="hidden lg:flex">
         <ConversationSidebar
-          isOpen={false}
-          onClose={() => {}}
           onNewChat={handleNewChat}
           onOpenProfile={() => setShowProfile(true)}
         />

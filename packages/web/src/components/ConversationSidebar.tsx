@@ -3,14 +3,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Plus, Search, Home, FileText, User, BookOpen, X } from "lucide-react";
 import { useConversationStore } from "@/lib/stores/conversation-store";
 import type { ConversationMeta } from "@/lib/stores/conversation-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 
 interface ConversationSidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
   onNewChat: () => void;
   onOpenProfile?: () => void;
 }
@@ -28,8 +27,6 @@ function getDateGroup(dateStr: string): string {
 const DATE_GROUP_ORDER = ["Today", "Yesterday", "Last 7 Days", "Older"];
 
 export default function ConversationSidebar({
-  isOpen,
-  onClose,
   onNewChat,
   onOpenProfile,
 }: ConversationSidebarProps) {
@@ -80,51 +77,62 @@ export default function ConversationSidebar({
 
   function handleConversationClick(id: string) {
     router.push(`/chat/${id}`);
-    onClose();
   }
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-zinc-950 border-r border-zinc-800 w-[280px]">
-      {/* Top: Home + New Chat */}
-      <div className="p-3 border-b border-zinc-800 flex-shrink-0 space-y-2">
+    <div className="flex flex-col h-full w-[300px]" style={{ background: 'var(--surface-1)', borderRight: '1px solid var(--border-subtle)' }}>
+      {/* Header: Logo + New Chat */}
+      <div className="p-3 flex-shrink-0 space-y-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <Link
           href="/"
-          onClick={onClose}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium transition-colors"
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors"
+          style={{ color: 'var(--text-primary)' }}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-          Home
+          <div
+            className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
+            style={{
+              background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
+            }}
+          >
+            <Home className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-semibold text-sm">ILR Advisor</span>
         </Link>
         <button
           onClick={onNewChat}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
+          style={{
+            color: 'var(--primary)',
+            background: 'var(--primary-subtle)',
+            border: '1px solid rgba(16, 185, 129, 0.15)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--primary-glow)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--primary-subtle)';
+          }}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <Plus className="w-4 h-4" />
           New Chat
         </button>
       </div>
 
       {/* Search */}
-      <div className="p-3 border-b border-zinc-800 flex-shrink-0">
+      <div className="p-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="relative">
-          <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search conversations..."
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-md pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg pl-8 pr-3 py-1.5 text-xs placeholder-zinc-500 focus:outline-none focus:ring-1"
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-primary)',
+            }}
           />
         </div>
       </div>
@@ -132,7 +140,7 @@ export default function ConversationSidebar({
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto py-2">
         {filtered.length === 0 && (
-          <p className="text-zinc-600 text-xs px-4 py-3">
+          <p className="text-xs px-4 py-3" style={{ color: 'var(--text-muted)' }}>
             {search ? "No conversations match your search." : "No conversations yet."}
           </p>
         )}
@@ -141,7 +149,10 @@ export default function ConversationSidebar({
           if (!items || items.length === 0) return null;
           return (
             <div key={group} className="mb-3">
-              <p className="text-[10px] uppercase tracking-wider text-zinc-600 px-3 py-1 font-medium">
+              <p
+                className="text-[10px] uppercase tracking-[0.8px] px-3 py-1 font-medium"
+                style={{ color: 'var(--text-faint)' }}
+              >
                 {group}
               </p>
               {items.map((conv) => (
@@ -153,12 +164,23 @@ export default function ConversationSidebar({
                 >
                   <button
                     onClick={() => handleConversationClick(conv.id)}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors rounded-md mx-1 ${
-                      activeConversationId === conv.id
-                        ? "bg-zinc-800 text-white"
-                        : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-                    }`}
-                    style={{ maxWidth: "calc(100% - 8px)" }}
+                    className="w-full text-left px-3 py-2 text-[13px] transition-colors rounded-lg mx-1"
+                    style={{
+                      maxWidth: "calc(100% - 8px)",
+                      background: activeConversationId === conv.id ? 'var(--primary-subtle)' : 'transparent',
+                      borderLeft: activeConversationId === conv.id ? '2px solid var(--primary)' : '2px solid transparent',
+                      color: activeConversationId === conv.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activeConversationId !== conv.id) {
+                        e.currentTarget.style.background = 'var(--surface-3)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeConversationId !== conv.id) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
                   >
                     <span className="block truncate pr-6">{conv.title}</span>
                   </button>
@@ -167,17 +189,15 @@ export default function ConversationSidebar({
                       onClick={(e) => handleDelete(conv.id, e)}
                       disabled={deletingId === conv.id}
                       title="Delete conversation"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-600 hover:text-red-400 transition-colors rounded disabled:opacity-50"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 transition-colors rounded disabled:opacity-50"
+                      style={{ color: 'var(--text-muted)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
                     >
                       {deletingId === conv.id ? (
-                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
+                        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                       ) : (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <X className="w-3.5 h-3.5" />
                       )}
                     </button>
                   )}
@@ -189,36 +209,57 @@ export default function ConversationSidebar({
       </div>
 
       {/* Bottom section */}
-      <div className="border-t border-zinc-800 p-3 space-y-1 flex-shrink-0">
+      <div className="p-3 space-y-1 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
         <a
           href="https://ilovepropertyco.com.au/resources"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors"
+          style={{ color: 'var(--text-secondary)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--surface-3)';
+            e.currentTarget.style.color = 'var(--text-primary)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = 'var(--text-secondary)';
+          }}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
+          <BookOpen className="w-4 h-4" />
           Resources
         </a>
         {isOnboarded && (
           <>
             <button
               onClick={onOpenProfile}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors w-full"
+              className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors w-full"
+              style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--surface-3)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+              <User className="w-4 h-4" />
               My Profile
             </button>
             <Link
               href="/roadmap"
-              className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--surface-3)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <FileText className="w-4 h-4" />
               My Roadmap
             </Link>
           </>
@@ -226,12 +267,27 @@ export default function ConversationSidebar({
         {user && (
           <button
             onClick={onOpenProfile}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors w-full"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors w-full"
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border-subtle)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--surface-3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--surface-2)';
+            }}
           >
-            <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
+            <div
+              className="w-[32px] h-[32px] rounded-lg flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+              style={{
+                background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
+              }}
+            >
               {user.email?.[0]?.toUpperCase() ?? "U"}
             </div>
-            <span className="text-xs text-zinc-400 truncate flex-1">{user.email}</span>
+            <span className="text-xs truncate flex-1" style={{ color: 'var(--text-secondary)' }}>{user.email}</span>
           </button>
         )}
       </div>
@@ -239,24 +295,6 @@ export default function ConversationSidebar({
   );
 
   return (
-    <>
-      {/* Desktop: always visible */}
-      <div className="hidden md:flex h-full">{sidebarContent}</div>
-
-      {/* Mobile: drawer overlay */}
-      {isOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={onClose}
-          />
-          {/* Drawer */}
-          <div className="relative z-50 h-full animate-in slide-in-from-left duration-200">
-            {sidebarContent}
-          </div>
-        </div>
-      )}
-    </>
+    <div className="flex h-full">{sidebarContent}</div>
   );
 }

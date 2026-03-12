@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { BarChart3, Building2, Scissors, Wallet, Send, Plus, Clock } from "lucide-react";
 import { useConversationStore } from "@/lib/stores/conversation-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import RoadmapCard from "@/components/RoadmapCard";
+import BottomSheet from "@/components/BottomSheet";
 
 const CHAT_STARTERS = [
   "Analyse a property deal for me",
@@ -19,25 +21,25 @@ const CHAT_STARTERS = [
 
 const RESOURCE_CARDS = [
   {
-    icon: "\u{1F3A5}",
+    icon: Building2,
     title: "Deal Analysis",
     description: "Step-by-step deal analysis frameworks",
     href: "#",
   },
   {
-    icon: "\u{1F4CA}",
+    icon: BarChart3,
     title: "Portfolio Planning",
     description: "Build a high-performing property portfolio",
     href: "#",
   },
   {
-    icon: "\u{1F3D7}\uFE0F",
+    icon: Scissors,
     title: "Subdivision",
     description: "Maximise returns through subdivision",
     href: "#",
   },
   {
-    icon: "\u{1F4B0}",
+    icon: Wallet,
     title: "Finance Strategy",
     description: "Structure finance for growth",
     href: "#",
@@ -53,6 +55,10 @@ export default function AdvisorLandingPage() {
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const conversations = useConversationStore((s) => s.conversations);
+  const activeConversationId = useConversationStore((s) => s.activeConversationId);
+  const fetchConversations = useConversationStore((s) => s.fetchConversations);
 
   async function startConversation(prompt: string) {
     if (!prompt.trim() || isCreating) return;
@@ -63,7 +69,6 @@ export default function AdvisorLandingPage() {
       const newId = await createConversation(title);
       router.push(`/chat/${newId}?prompt=${encodeURIComponent(prompt)}`);
     } catch {
-      // If unauthorized, redirect to login
       router.push("/login");
     } finally {
       setIsCreating(false);
@@ -77,11 +82,28 @@ export default function AdvisorLandingPage() {
     await startConversation(msg);
   }
 
+  async function handleNewChat() {
+    clearMessages();
+    try {
+      const newId = await createConversation("New conversation");
+      router.push(`/chat/${newId}`);
+    } catch {
+      router.push("/login");
+    }
+  }
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
   // Show nothing while auth is loading to prevent onboarding gate flash
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-zinc-700 border-t-indigo-500 rounded-full animate-spin" />
+        <div
+          className="w-6 h-6 border-2 rounded-full animate-spin"
+          style={{ borderColor: 'var(--border-default)', borderTopColor: 'var(--primary)' }}
+        />
       </div>
     );
   }
@@ -94,53 +116,76 @@ export default function AdvisorLandingPage() {
           <div className="max-w-3xl w-full py-8">
             {/* Hero */}
             <div className="text-center mb-10">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 mb-5">
-                <svg className="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
+              <div
+                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5"
+                style={{
+                  background: 'var(--primary-glow)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                }}
+              >
+                <Building2 className="w-8 h-8" style={{ color: 'var(--primary-light)' }} />
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
-                Welcome to ILR Property Advisor
+                Welcome to ILR Advisor
               </h1>
-              <p className="text-zinc-400 text-base sm:text-lg max-w-xl mx-auto leading-relaxed mb-8">
-                Your AI advisor trained on ILR's proven property investment methodology.
+              <p className="text-base sm:text-lg max-w-xl mx-auto leading-relaxed mb-8" style={{ color: 'var(--text-secondary)' }}>
+                Your AI advisor trained on ILR&apos;s proven property investment methodology.
                 To give you personalised guidance, we need to understand your financial position first.
               </p>
               <Link
                 href="/onboarding"
-                className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-xl text-base font-medium transition-colors"
+                className="inline-flex items-center gap-2 text-white px-8 py-3.5 rounded-xl text-base font-medium transition-all"
+                style={{
+                  background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
+                  boxShadow: '0 2px 12px rgba(16, 185, 129, 0.3)',
+                }}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Set Up Your Profile
               </Link>
-              <p className="text-xs text-zinc-600 mt-4">
+              <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
                 Takes about 5 minutes. Our advisor Ben will walk you through it.
               </p>
             </div>
 
             {/* Resource cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mb-6">
-              {RESOURCE_CARDS.map((card) => (
-                <a
-                  key={card.title}
-                  href={card.href}
-                  className="flex flex-col items-center text-center p-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 transition-colors group"
-                >
-                  <span className="text-2xl mb-2">{card.icon}</span>
-                  <span className="text-xs font-semibold text-zinc-200 group-hover:text-white mb-1">
-                    {card.title}
-                  </span>
-                  <span className="text-[11px] text-zinc-500 leading-tight hidden sm:block">
-                    {card.description}
-                  </span>
-                </a>
-              ))}
+              {RESOURCE_CARDS.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <a
+                    key={card.title}
+                    href={card.href}
+                    className="flex flex-col items-center text-center p-4 rounded-[14px] transition-all group"
+                    style={{
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-default)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <Icon className="w-6 h-6 mb-2" style={{ color: 'var(--primary)' }} />
+                    <span className="text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                      {card.title}
+                    </span>
+                    <span className="text-[11px] leading-tight hidden sm:block" style={{ color: 'var(--text-muted)' }}>
+                      {card.description}
+                    </span>
+                  </a>
+                );
+              })}
             </div>
 
-            <p className="text-xs text-zinc-600 text-center max-w-md mx-auto">
-              Trained on ILR's methodology. Always verify with your professional team.
+            <p className="text-xs text-center max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
+              Trained on ILR&apos;s methodology. Always verify with your professional team.
               This is not financial advice.
             </p>
           </div>
@@ -156,16 +201,20 @@ export default function AdvisorLandingPage() {
         <div className="max-w-3xl w-full py-8">
           {/* Hero */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 mb-5">
-              <svg className="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
+            <div
+              className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-5"
+              style={{
+                background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
+                boxShadow: '0 0 20px var(--primary-glow)',
+              }}
+            >
+              <Building2 className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
-              ILR Property Advisor
+            <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-3">
+              ILR Advisor
             </h1>
-            <p className="text-zinc-400 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
-              Your AI advisor trained on ILR's proven property investment methodology.
+            <p className="text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              Your AI advisor trained on ILR&apos;s proven property investment methodology.
               Get personalised guidance on deals, strategy, finance, and more.
             </p>
           </div>
@@ -177,25 +226,40 @@ export default function AdvisorLandingPage() {
 
           {/* Resource cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mb-6">
-            {RESOURCE_CARDS.map((card) => (
-              <a
-                key={card.title}
-                href={card.href}
-                className="flex flex-col items-center text-center p-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 transition-colors group"
-              >
-                <span className="text-2xl mb-2">{card.icon}</span>
-                <span className="text-xs font-semibold text-zinc-200 group-hover:text-white mb-1">
-                  {card.title}
-                </span>
-                <span className="text-[11px] text-zinc-500 leading-tight hidden sm:block">
-                  {card.description}
-                </span>
-              </a>
-            ))}
+            {RESOURCE_CARDS.map((card) => {
+              const Icon = card.icon;
+              return (
+                <a
+                  key={card.title}
+                  href={card.href}
+                  className="flex flex-col items-center text-center p-4 rounded-[14px] transition-all group"
+                  style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-default)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <Icon className="w-6 h-6 mb-2" style={{ color: 'var(--primary)' }} />
+                  <span className="text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    {card.title}
+                  </span>
+                  <span className="text-[11px] leading-tight hidden sm:block" style={{ color: 'var(--text-muted)' }}>
+                    {card.description}
+                  </span>
+                </a>
+              );
+            })}
           </div>
 
-          <p className="text-xs text-zinc-600 text-center max-w-md mx-auto">
-            Trained on ILR's methodology. Always verify with your professional team.
+          <p className="text-xs text-center max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
+            Trained on ILR&apos;s methodology. Always verify with your professional team.
             This is not financial advice.
           </p>
         </div>
@@ -203,14 +267,57 @@ export default function AdvisorLandingPage() {
 
       {/* Bottom section: starters + input */}
       <div className="flex-shrink-0 px-4 pb-4">
+        {/* Action chips -- mobile only */}
+        <div className="flex gap-1.5 px-4 py-2 lg:hidden">
+          <button
+            onClick={handleNewChat}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 rounded-full"
+            style={{
+              height: "36px",
+              background: "var(--primary-subtle)",
+              border: "1px solid var(--primary)",
+              color: "var(--primary-light)",
+            }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New chat
+          </button>
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 rounded-full"
+            style={{
+              height: "36px",
+              background: "var(--surface-2)",
+              border: "1px solid var(--border-default)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            History
+          </button>
+        </div>
+
         {/* Chat starters */}
-        <div className="flex flex-wrap justify-center gap-2 mb-4 max-w-3xl mx-auto">
+        <div className="flex flex-wrap justify-center gap-1.5 mb-4 max-w-3xl mx-auto">
           {CHAT_STARTERS.map((starter) => (
             <button
               key={starter}
               onClick={() => startConversation(starter)}
               disabled={isCreating}
-              className="text-sm px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white hover:border-indigo-500/50 hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-[11px] px-3.5 py-1.5 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-secondary)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
             >
               {starter}
             </button>
@@ -223,36 +330,88 @@ export default function AdvisorLandingPage() {
             e.preventDefault();
             handleSend();
           }}
-          className="flex gap-3 max-w-3xl mx-auto"
+          className="max-w-[680px] mx-auto"
         >
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Send a message..."
-            disabled={isCreating}
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
-            autoFocus
-          />
-          <button
-            type="submit"
-            disabled={isCreating || !input.trim()}
-            className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl text-sm font-medium transition-colors"
+          <div
+            className="flex items-center gap-2 rounded-[18px] p-1 transition-all"
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border-default)',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-default)';
+            }}
           >
-            {isCreating ? (
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-              </svg>
-            )}
-          </button>
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask your advisor..."
+              disabled={isCreating}
+              className="flex-1 bg-transparent px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none disabled:opacity-50"
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={isCreating || !input.trim()}
+              className="flex items-center justify-center w-10 h-10 rounded-[14px] text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+              style={{
+                background: isCreating || !input.trim()
+                  ? 'var(--surface-3)'
+                  : 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
+                boxShadow: isCreating || !input.trim() ? 'none' : '0 2px 8px rgba(16, 185, 129, 0.3)',
+              }}
+            >
+              {isCreating ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          <p className="text-center text-[10px] mt-1.5" style={{ color: 'var(--text-faint)' }}>
+            AI-generated. Not financial advice. Always consult qualified professionals.
+          </p>
         </form>
       </div>
+
+      <BottomSheet
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        title="Conversations"
+      >
+        <div className="space-y-1">
+          {conversations.map((conv) => (
+            <button
+              key={conv.id}
+              onClick={() => {
+                router.push(`/chat/${conv.id}`);
+                setHistoryOpen(false);
+              }}
+              className="w-full text-left px-3 py-3 rounded-lg transition-colors"
+              style={{
+                background: conv.id === activeConversationId
+                  ? "rgba(16, 185, 129, 0.06)"
+                  : "transparent",
+                borderLeft: conv.id === activeConversationId
+                  ? "3px solid var(--primary)"
+                  : "3px solid transparent",
+              }}
+            >
+              <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                {conv.title}
+              </p>
+              <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-muted)" }}>
+                {new Date(conv.updated_at).toLocaleDateString()}
+              </p>
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
     </div>
   );
 }

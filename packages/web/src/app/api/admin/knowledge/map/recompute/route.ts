@@ -16,6 +16,23 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseClient();
     const startTime = Date.now();
 
+    // Check if map_x/map_y columns exist
+    const { error: probeError } = await supabase
+      .from('chunks')
+      .select('map_x')
+      .limit(1);
+
+    if (probeError && probeError.code === '42703') {
+      return NextResponse.json(
+        {
+          error: 'Missing map columns',
+          message:
+            'The chunks table is missing map_x/map_y columns. Run the migration: ALTER TABLE chunks ADD COLUMN IF NOT EXISTS map_x float; ALTER TABLE chunks ADD COLUMN IF NOT EXISTS map_y float;',
+        },
+        { status: 400 }
+      );
+    }
+
     // First, count how many chunks we're dealing with
     const { count, error: countError } = await supabase
       .from('chunks')

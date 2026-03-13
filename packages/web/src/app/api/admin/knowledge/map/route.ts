@@ -14,12 +14,26 @@ export async function GET(req: NextRequest) {
     const contentLayer = req.nextUrl.searchParams.get('content_layer') || 'raw';
     const agent = req.nextUrl.searchParams.get('agent');
 
+    // Check if map_x/map_y columns exist by doing a minimal probe query
+    const { error: probeError } = await supabase
+      .from('chunks')
+      .select('map_x')
+      .limit(1);
+
+    const hasMapColumns = !probeError || probeError.code !== '42703';
+
     let query = supabase
       .from('chunks')
-      .select('id, source_id, agent, content_type, title, topics, word_count, map_x, map_y, content_layer, text')
-      .not('map_x', 'is', null)
-      .not('map_y', 'is', null)
+      .select(
+        hasMapColumns
+          ? 'id, source_id, agent, content_type, title, topics, word_count, map_x, map_y, content_layer, text'
+          : 'id, source_id, agent, content_type, title, topics, word_count, content_layer, text'
+      )
       .eq('content_layer', contentLayer);
+
+    if (hasMapColumns) {
+      query = query.not('map_x', 'is', null).not('map_y', 'is', null);
+    }
 
     if (agent) {
       query = query.eq('agent', agent);
@@ -28,7 +42,8 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
     if (error) throw error;
 
-    const points = (data || []).map((chunk) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const points = ((data || []) as any[]).map((chunk) => ({
       id: chunk.id,
       source_id: chunk.source_id,
       agent: chunk.agent,
@@ -36,10 +51,10 @@ export async function GET(req: NextRequest) {
       title: chunk.title,
       topics: chunk.topics,
       word_count: chunk.word_count,
-      map_x: chunk.map_x,
-      map_y: chunk.map_y,
+      map_x: chunk.map_x ?? null,
+      map_y: chunk.map_y ?? null,
       content_layer: chunk.content_layer,
-      snippet: chunk.text ? chunk.text.substring(0, 100) : '',
+      snippet: typeof chunk.text === 'string' ? chunk.text.substring(0, 100) : '',
     }));
 
     const byAgent: Record<string, number> = {};
@@ -60,6 +75,7 @@ export async function GET(req: NextRequest) {
         byAgent,
         byContentType,
       },
+      migration_needed: !hasMapColumns,
     });
   } catch (error) {
     console.error('Knowledge map error:', error);

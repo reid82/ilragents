@@ -35,6 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { label: 'Feedback', href: '/admin/feedback' },
     { label: 'Conversations', href: '/admin/conversations' },
     { label: 'Quality', href: '/admin/quality' },
+    { label: 'Knowledge', href: '/admin/knowledge' },
     { label: 'Personas', href: '/admin/personas' },
   ];
 

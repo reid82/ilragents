@@ -26,12 +26,17 @@ eval-report.json
 
 # Supabase temp files
 packages/pipeline/supabase/.temp/
+supabase/.temp/
 
 # Worktrees
 .worktrees/
 
 # Superpowers brainstorm sessions
 .superpowers/
+
+# Tool configs (local)
+.claude/
+.superset/
 
 # OS files
 .DS_Store

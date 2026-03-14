@@ -121,12 +121,21 @@ async function runRecompute() {
 
   // Compute 2D layout using cosine-similarity-based force layout
   // Entirely iterative — no recursion, no stack overflow risk
-  setJobStatus({ stage: 'Computing 2D projection…', progress: 40 });
-
   const n = allChunks.length;
-  const embeddings = allChunks.map((c) => c.embedding);
+  const rawEmbeddings = allChunks.map((c) => c.embedding);
+  const origDims = rawEmbeddings[0].length;
 
-  // Step 1: Build cosine similarity matrix (only store k nearest neighbors)
+  // Reduce dimensionality first (1536 → 32) so kNN is fast
+  const REDUCED_DIMS = 32;
+  setJobStatus({ stage: `Reducing ${origDims}→${REDUCED_DIMS} dimensions…`, progress: 38 });
+  await new Promise((r) => setTimeout(r, 0));
+
+  const embeddings = origDims > REDUCED_DIMS
+    ? randomProject(rawEmbeddings, REDUCED_DIMS)
+    : rawEmbeddings;
+  const dims = embeddings[0].length;
+
+  // Step 1: Build kNN graph on reduced embeddings
   const K = Math.min(15, n - 1);
   setJobStatus({ stage: `Building ${K}-nearest neighbor graph…`, progress: 42 });
 
@@ -135,7 +144,7 @@ async function runRecompute() {
   for (let i = 0; i < n; i++) {
     let sum = 0;
     const e = embeddings[i];
-    for (let d = 0; d < e.length; d++) sum += e[d] * e[d];
+    for (let d = 0; d < dims; d++) sum += e[d] * e[d];
     norms[i] = Math.sqrt(sum);
   }
 
@@ -144,28 +153,25 @@ async function runRecompute() {
   const similarities: Float64Array[] = new Array(n);
 
   for (let i = 0; i < n; i++) {
-    // Compute cosine similarity to all other points
     const sims = new Float64Array(n);
     const ei = embeddings[i];
     const ni = norms[i];
     for (let j = 0; j < n; j++) {
-      if (i === j) { sims[j] = -2; continue; } // exclude self
+      if (i === j) { sims[j] = -2; continue; }
       let dot = 0;
       const ej = embeddings[j];
-      for (let d = 0; d < ei.length; d++) dot += ei[d] * ej[d];
+      for (let d = 0; d < dims; d++) dot += ei[d] * ej[d];
       sims[j] = dot / (ni * norms[j] + 1e-10);
     }
 
-    // Find top-K neighbors (partial sort)
+    // Partial sort: find top K
     const indices = new Int32Array(n);
     for (let j = 0; j < n; j++) indices[j] = j;
-    // Simple partial sort: find top K
     for (let k = 0; k < K; k++) {
       let maxIdx = k;
       for (let j = k + 1; j < n; j++) {
         if (sims[indices[j]] > sims[indices[maxIdx]]) maxIdx = j;
       }
-      // Swap
       const tmp = indices[k];
       indices[k] = indices[maxIdx];
       indices[maxIdx] = tmp;
@@ -175,13 +181,13 @@ async function runRecompute() {
     similarities[i] = new Float64Array(K);
     for (let k = 0; k < K; k++) {
       neighbors[i][k] = indices[k];
-      similarities[i][k] = Math.max(0, sims[indices[k]]); // clamp negative
+      similarities[i][k] = Math.max(0, sims[indices[k]]);
     }
 
-    if (i % 50 === 0) {
+    // Yield every 10 points to keep event loop responsive
+    if (i % 10 === 0) {
       const nnProgress = 42 + Math.round((i / n) * 20);
-      setJobStatus({ stage: `Building neighbor graph… ${i}/${n}`, progress: Math.min(nnProgress, 62) });
-      // Yield to event loop periodically
+      setJobStatus({ stage: `Neighbor graph… ${i}/${n}`, progress: Math.min(nnProgress, 62) });
       await new Promise((r) => setTimeout(r, 0));
     }
   }
@@ -250,8 +256,8 @@ async function runRecompute() {
       posY[i] += forceY[i] * lr;
     }
 
-    // Yield to event loop and report progress every 10 epochs
-    if (epoch % 10 === 0) {
+    // Yield to event loop and report progress every 5 epochs
+    if (epoch % 5 === 0) {
       const layoutProgress = 65 + Math.round((epoch / EPOCHS) * 17);
       setJobStatus({ stage: `Layout epoch ${epoch}/${EPOCHS}…`, progress: Math.min(layoutProgress, 82) });
       await new Promise((r) => setTimeout(r, 0));
@@ -293,4 +299,45 @@ async function runRecompute() {
     updated,
     duration_ms: durationMs,
   });
+}
+
+/** Random projection via seeded Gaussian matrix (Johnson–Lindenstrauss). */
+function randomProject(vectors: number[][], targetDims: number): number[][] {
+  const origDims = vectors[0].length;
+  const scale = 1 / Math.sqrt(targetDims);
+
+  let seed = 42;
+  function nextRand(): number {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  }
+  function gaussRand(): number {
+    const u1 = nextRand();
+    const u2 = nextRand();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+
+  // Build projection matrix (origDims × targetDims)
+  const projMatrix: Float64Array[] = [];
+  for (let j = 0; j < targetDims; j++) {
+    const col = new Float64Array(origDims);
+    for (let i = 0; i < origDims; i++) col[i] = gaussRand() * scale;
+    projMatrix.push(col);
+  }
+
+  // Project each vector
+  const result: number[][] = new Array(vectors.length);
+  for (let v = 0; v < vectors.length; v++) {
+    const vec = vectors[v];
+    const projected = new Array(targetDims);
+    for (let j = 0; j < targetDims; j++) {
+      let sum = 0;
+      const col = projMatrix[j];
+      for (let i = 0; i < origDims; i++) sum += vec[i] * col[i];
+      projected[j] = sum;
+    }
+    result[v] = projected;
+  }
+
+  return result;
 }

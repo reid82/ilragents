@@ -10,6 +10,7 @@ import {
 } from '@/lib/map-job';
 
 const BATCH_SIZE = 100;
+const REDUCED_DIMS = 50; // Pre-reduce from 1536 to avoid stack overflow in umap-js tree building
 
 /** POST — kick off a background UMAP recompute */
 export async function POST(req: NextRequest) {
@@ -124,6 +125,16 @@ async function runRecompute() {
     return;
   }
 
+  // Reduce dimensionality: 1536 → 50 via random projection to prevent
+  // stack overflow in umap-js's recursive tree building
+  setJobStatus({ stage: 'Reducing dimensions…', progress: 42 });
+
+  const rawEmbeddings = allChunks.map((c) => c.embedding);
+  const origDims = rawEmbeddings[0].length;
+  const embeddings = origDims > REDUCED_DIMS
+    ? randomProject(rawEmbeddings, REDUCED_DIMS)
+    : rawEmbeddings;
+
   // Run UMAP
   setJobStatus({ stage: `Running UMAP on ${allChunks.length} chunks…`, progress: 45 });
 
@@ -134,8 +145,6 @@ async function runRecompute() {
     minDist: 0.1,
     spread: 1.0,
   });
-
-  const embeddings = allChunks.map((c) => c.embedding);
 
   // Use fitAsync with epoch callback for progress
   // UMAP default is 200 epochs for small datasets, scales with size
@@ -190,4 +199,56 @@ async function runRecompute() {
     updated,
     duration_ms: durationMs,
   });
+}
+
+/**
+ * Random projection: reduces high-dimensional vectors to targetDims.
+ * Uses a seeded Gaussian random matrix (Johnson–Lindenstrauss lemma
+ * guarantees approximate distance preservation).
+ */
+function randomProject(vectors: number[][], targetDims: number): number[][] {
+  const origDims = vectors[0].length;
+  const scale = 1 / Math.sqrt(targetDims);
+
+  // Generate random projection matrix (origDims × targetDims)
+  // Using simple seeded approach for reproducibility
+  let seed = 42;
+  function nextRand(): number {
+    seed = (seed * 16807 + 0) % 2147483647;
+    return (seed - 1) / 2147483646;
+  }
+  // Box-Muller for Gaussian random numbers
+  function gaussRand(): number {
+    const u1 = nextRand();
+    const u2 = nextRand();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+
+  // Build the projection matrix
+  const projMatrix: number[][] = [];
+  for (let j = 0; j < targetDims; j++) {
+    const col = new Array(origDims);
+    for (let i = 0; i < origDims; i++) {
+      col[i] = gaussRand() * scale;
+    }
+    projMatrix.push(col);
+  }
+
+  // Project each vector
+  const result: number[][] = new Array(vectors.length);
+  for (let v = 0; v < vectors.length; v++) {
+    const vec = vectors[v];
+    const projected = new Array(targetDims);
+    for (let j = 0; j < targetDims; j++) {
+      let sum = 0;
+      const col = projMatrix[j];
+      for (let i = 0; i < origDims; i++) {
+        sum += vec[i] * col[i];
+      }
+      projected[j] = sum;
+    }
+    result[v] = projected;
+  }
+
+  return result;
 }

@@ -214,24 +214,20 @@ async function main() {
   }
   console.log(`\r  epoch ${LAYOUT_EPOCHS}/${LAYOUT_EPOCHS}`);
 
-  // 7. Save to database
+  // 7. Save to database (update existing rows one at a time)
   console.log('Saving map coordinates…');
   let updated = 0;
-  for (let i = 0; i < n; i += BATCH_SIZE) {
-    const batch = allChunks.slice(i, i + BATCH_SIZE).map((chunk, idx) => ({
-      id: chunk.id,
-      map_x: posX[i + idx],
-      map_y: posY[i + idx],
-    }));
-
+  for (let i = 0; i < n; i++) {
     const { error } = await supabase
       .from('chunks')
-      .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
+      .update({ map_x: posX[i], map_y: posY[i] })
+      .eq('id', allChunks[i].id);
 
     if (error) throw error;
-    updated += batch.length;
-    process.stdout.write(`\r  ${updated}/${n}`);
+    updated++;
+    if (updated % 100 === 0) process.stdout.write(`\r  ${updated}/${n}`);
   }
+  process.stdout.write(`\r  ${updated}/${n}`);
   console.log();
 
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);

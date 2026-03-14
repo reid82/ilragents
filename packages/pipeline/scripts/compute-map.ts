@@ -84,7 +84,11 @@ async function main() {
     if (!data || data.length === 0) break;
 
     for (const chunk of data) {
-      allChunks.push({ id: chunk.id, embedding: chunk.embedding as number[] });
+      // Supabase returns pgvector embeddings as JSON strings
+      const emb = typeof chunk.embedding === 'string'
+        ? JSON.parse(chunk.embedding)
+        : chunk.embedding;
+      allChunks.push({ id: chunk.id, embedding: emb as number[] });
     }
     offset += pageSize;
     process.stdout.write(`\r  ${allChunks.length}/${count}`);

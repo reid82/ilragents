@@ -93,10 +93,6 @@ export default function KnowledgeMapPage() {
   // UI state
   const [colorMode, setColorMode] = useState<ColorMode>('agent');
   const [agentFilter, setAgentFilter] = useState('all');
-  const [recomputing, setRecomputing] = useState(false);
-  const [recomputeStage, setRecomputeStage] = useState('');
-  const [recomputeProgress, setRecomputeProgress] = useState(0);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [hoveredPoint, setHoveredPoint] = useState<MapPoint | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
@@ -131,69 +127,6 @@ export default function KnowledgeMapPage() {
   useEffect(() => {
     fetchMapData();
   }, [fetchMapData]);
-
-  // --- Recompute map (background job + polling) ---
-  function stopPolling() {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }
-
-  async function pollStatus() {
-    try {
-      const res = await fetch('/api/admin/knowledge/map/recompute');
-      if (!res.ok) return;
-      const status = await res.json();
-
-      setRecomputeStage(status.stage || '');
-      setRecomputeProgress(status.progress || 0);
-
-      if (status.state === 'done') {
-        stopPolling();
-        setRecomputing(false);
-        setRecomputeStage('');
-        setRecomputeProgress(0);
-        await fetchMapData();
-      } else if (status.state === 'error') {
-        stopPolling();
-        setRecomputing(false);
-        setRecomputeStage('');
-        setRecomputeProgress(0);
-        setError(status.error || 'Recompute failed.');
-      }
-    } catch {
-      // Network error during poll — keep polling
-    }
-  }
-
-  async function handleRecompute() {
-    setRecomputing(true);
-    setRecomputeStage('Starting…');
-    setRecomputeProgress(0);
-    setError(null);
-    try {
-      const res = await fetch('/api/admin/knowledge/map/recompute', { method: 'POST' });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to start recompute');
-      }
-      // Start polling every 2 seconds
-      stopPolling();
-      pollRef.current = setInterval(pollStatus, 2000);
-    } catch (err) {
-      console.error('Recompute failed:', err);
-      setError(err instanceof Error ? err.message : 'Recompute failed.');
-      setRecomputing(false);
-      setRecomputeStage('');
-      setRecomputeProgress(0);
-    }
-  }
-
-  // Clean up polling on unmount
-  useEffect(() => {
-    return () => stopPolling();
-  }, []);
 
   // --- Derived data ---
   const agents = useMemo(() => {
@@ -518,34 +451,11 @@ export default function KnowledgeMapPage() {
           </select>
         </div>
 
-        {/* Recompute */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleRecompute}
-            disabled={recomputing}
-            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
-          >
-            {recomputing && (
-              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            )}
-            Recompute Map
-          </button>
-          {recomputing && (
-            <div className="flex items-center gap-2 min-w-[200px]">
-              <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                  style={{ width: `${recomputeProgress}%` }}
-                />
-              </div>
-              <span className="text-zinc-400 text-xs whitespace-nowrap">
-                {recomputeStage || 'Starting…'}
-              </span>
-            </div>
-          )}
+        {/* Recompute info */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-zinc-600 font-mono">
+            Recompute: npx tsx scripts/compute-map.ts
+          </span>
         </div>
 
         {/* Spacer */}
@@ -605,9 +515,12 @@ export default function KnowledgeMapPage() {
                 </svg>
               </div>
               <p className="text-zinc-400 text-sm font-medium mb-2">No map data yet</p>
-              <p className="text-zinc-600 text-xs max-w-sm">
-                Click &quot;Recompute Map&quot; to generate the 2D projection from your knowledge embeddings.
+              <p className="text-zinc-600 text-xs max-w-sm mb-3">
+                Run the compute script locally to generate 2D coordinates from embeddings.
               </p>
+              <code className="text-[11px] text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800">
+                cd packages/pipeline && npx tsx scripts/compute-map.ts
+              </code>
             </div>
           ) : (
             <>

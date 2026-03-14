@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin, isAdminError } from '@/lib/admin-auth';
 import { getSupabaseClient } from '@/lib/supabase';
-import { UMAP } from 'umap-js';
 import {
   getJobStatus,
   setJobStatus,
-  resetJob,
   isJobRunning,
 } from '@/lib/map-job';
 
 const BATCH_SIZE = 100;
-const REDUCED_DIMS = 50; // Pre-reduce from 1536 to avoid stack overflow in umap-js tree building
 
-/** POST — kick off a background UMAP recompute */
+/** POST — kick off a background map recompute */
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (isAdminError(auth)) {
@@ -26,9 +23,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Start the background job — don't await it
   runRecompute().catch((err) => {
-    console.error('Background UMAP recompute crashed:', err);
+    console.error('Background map recompute crashed:', err);
     setJobStatus({
       state: 'error',
       error: err instanceof Error ? err.message : 'Unknown error',
@@ -56,7 +52,6 @@ async function runRecompute() {
 
   setJobStatus({ state: 'running', stage: 'Checking columns…', progress: 0, startedAt: startTime });
 
-  // Check if map_x/map_y columns exist
   const { error: probeError } = await supabase
     .from('chunks')
     .select('map_x')
@@ -71,7 +66,6 @@ async function runRecompute() {
     return;
   }
 
-  // Count chunks
   setJobStatus({ state: 'running', stage: 'Counting chunks…', progress: 5 });
 
   const { count, error: countError } = await supabase
@@ -113,70 +107,170 @@ async function runRecompute() {
     }
 
     offset += pageSize;
-    const fetchProgress = 10 + Math.round((offset / count) * 30); // 10-40%
-    setJobStatus({ stage: `Fetched ${allChunks.length}/${count} embeddings…`, progress: Math.min(fetchProgress, 40) });
+    const fetchProgress = 10 + Math.round((offset / count) * 25);
+    setJobStatus({ stage: `Fetched ${allChunks.length}/${count} embeddings…`, progress: Math.min(fetchProgress, 35) });
   }
 
   if (allChunks.length < 2) {
     setJobStatus({
       state: 'error',
-      error: 'Need at least 2 chunks with embeddings to compute UMAP',
+      error: 'Need at least 2 chunks with embeddings to compute projection',
     });
     return;
   }
 
-  // Reduce dimensionality: 1536 → 50 via random projection to prevent
-  // stack overflow in umap-js's recursive tree building
-  setJobStatus({ stage: 'Reducing dimensions…', progress: 42 });
+  // Compute 2D layout using cosine-similarity-based force layout
+  // Entirely iterative — no recursion, no stack overflow risk
+  setJobStatus({ stage: 'Computing 2D projection…', progress: 40 });
 
-  const rawEmbeddings = allChunks.map((c) => c.embedding);
-  const origDims = rawEmbeddings[0].length;
-  const embeddings = origDims > REDUCED_DIMS
-    ? randomProject(rawEmbeddings, REDUCED_DIMS)
-    : rawEmbeddings;
+  const n = allChunks.length;
+  const embeddings = allChunks.map((c) => c.embedding);
 
-  // Run UMAP
-  setJobStatus({ stage: `Running UMAP on ${allChunks.length} chunks…`, progress: 45 });
+  // Step 1: Build cosine similarity matrix (only store k nearest neighbors)
+  const K = Math.min(15, n - 1);
+  setJobStatus({ stage: `Building ${K}-nearest neighbor graph…`, progress: 42 });
 
-  const nNeighbors = Math.min(15, allChunks.length - 1);
-  const umap = new UMAP({
-    nComponents: 2,
-    nNeighbors,
-    minDist: 0.1,
-    spread: 1.0,
-  });
+  // Pre-compute norms
+  const norms = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    const e = embeddings[i];
+    for (let d = 0; d < e.length; d++) sum += e[d] * e[d];
+    norms[i] = Math.sqrt(sum);
+  }
 
-  // Use fitAsync with epoch callback for progress
-  // UMAP default is 200 epochs for small datasets, scales with size
-  const nEpochs = 200;
-  let lastProgressUpdate = Date.now();
+  // For each point, find K nearest neighbors by cosine similarity
+  const neighbors: Int32Array[] = new Array(n);
+  const similarities: Float64Array[] = new Array(n);
 
-  const projection = await umap.fitAsync(embeddings, (epochNumber: number) => {
-    // Throttle status updates to every 500ms to avoid overhead
-    const now = Date.now();
-    if (now - lastProgressUpdate > 500) {
-      const umapProgress = 45 + Math.round((epochNumber / nEpochs) * 35); // 45-80%
-      setJobStatus({ stage: `UMAP epoch ${epochNumber}…`, progress: Math.min(umapProgress, 80) });
-      lastProgressUpdate = now;
+  for (let i = 0; i < n; i++) {
+    // Compute cosine similarity to all other points
+    const sims = new Float64Array(n);
+    const ei = embeddings[i];
+    const ni = norms[i];
+    for (let j = 0; j < n; j++) {
+      if (i === j) { sims[j] = -2; continue; } // exclude self
+      let dot = 0;
+      const ej = embeddings[j];
+      for (let d = 0; d < ei.length; d++) dot += ei[d] * ej[d];
+      sims[j] = dot / (ni * norms[j] + 1e-10);
     }
-  });
 
-  setJobStatus({ stage: 'Saving coordinates…', progress: 82 });
+    // Find top-K neighbors (partial sort)
+    const indices = new Int32Array(n);
+    for (let j = 0; j < n; j++) indices[j] = j;
+    // Simple partial sort: find top K
+    for (let k = 0; k < K; k++) {
+      let maxIdx = k;
+      for (let j = k + 1; j < n; j++) {
+        if (sims[indices[j]] > sims[indices[maxIdx]]) maxIdx = j;
+      }
+      // Swap
+      const tmp = indices[k];
+      indices[k] = indices[maxIdx];
+      indices[maxIdx] = tmp;
+    }
 
-  // Batch update map_x and map_y
+    neighbors[i] = new Int32Array(K);
+    similarities[i] = new Float64Array(K);
+    for (let k = 0; k < K; k++) {
+      neighbors[i][k] = indices[k];
+      similarities[i][k] = Math.max(0, sims[indices[k]]); // clamp negative
+    }
+
+    if (i % 50 === 0) {
+      const nnProgress = 42 + Math.round((i / n) * 20);
+      setJobStatus({ stage: `Building neighbor graph… ${i}/${n}`, progress: Math.min(nnProgress, 62) });
+      // Yield to event loop periodically
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  }
+
+  // Step 2: Initialize 2D positions randomly (seeded)
+  const posX = new Float64Array(n);
+  const posY = new Float64Array(n);
+  let seed = 42;
+  function seededRandom(): number {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  }
+  for (let i = 0; i < n; i++) {
+    posX[i] = (seededRandom() - 0.5) * 10;
+    posY[i] = (seededRandom() - 0.5) * 10;
+  }
+
+  // Step 3: Iterative force-directed layout
+  // Attractive forces between neighbors, repulsive forces between all pairs
+  const EPOCHS = 300;
+  const REPULSION = 1.0;
+
+  for (let epoch = 0; epoch < EPOCHS; epoch++) {
+    const lr = 1.0 * (1 - epoch / EPOCHS); // decaying learning rate
+    const forceX = new Float64Array(n);
+    const forceY = new Float64Array(n);
+
+    // Attractive forces (from kNN graph)
+    for (let i = 0; i < n; i++) {
+      for (let k = 0; k < K; k++) {
+        const j = neighbors[i][k];
+        const w = similarities[i][k];
+        const dx = posX[j] - posX[i];
+        const dy = posY[j] - posY[i];
+        const attraction = w * 0.1;
+        forceX[i] += dx * attraction;
+        forceY[i] += dy * attraction;
+      }
+    }
+
+    // Repulsive forces (sampled — use negative sampling for O(n) instead of O(n²))
+    const nNegSamples = 5;
+    for (let i = 0; i < n; i++) {
+      for (let s = 0; s < nNegSamples; s++) {
+        const j = Math.floor(seededRandom() * n);
+        if (j === i) continue;
+        const dx = posX[i] - posX[j];
+        const dy = posY[i] - posY[j];
+        const dist2 = dx * dx + dy * dy + 0.01; // avoid div by zero
+        const repulsion = REPULSION / dist2;
+        forceX[i] += dx * repulsion;
+        forceY[i] += dy * repulsion;
+      }
+    }
+
+    // Apply forces
+    for (let i = 0; i < n; i++) {
+      // Clamp force magnitude
+      const fMag = Math.sqrt(forceX[i] * forceX[i] + forceY[i] * forceY[i]);
+      const maxForce = 4.0;
+      if (fMag > maxForce) {
+        forceX[i] = (forceX[i] / fMag) * maxForce;
+        forceY[i] = (forceY[i] / fMag) * maxForce;
+      }
+      posX[i] += forceX[i] * lr;
+      posY[i] += forceY[i] * lr;
+    }
+
+    // Yield to event loop and report progress every 10 epochs
+    if (epoch % 10 === 0) {
+      const layoutProgress = 65 + Math.round((epoch / EPOCHS) * 17);
+      setJobStatus({ stage: `Layout epoch ${epoch}/${EPOCHS}…`, progress: Math.min(layoutProgress, 82) });
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  }
+
+  setJobStatus({ stage: 'Saving coordinates…', progress: 83 });
+
+  // Save results
   let updated = 0;
-  const totalBatches = Math.ceil(allChunks.length / BATCH_SIZE);
+  const totalBatches = Math.ceil(n / BATCH_SIZE);
 
-  for (let i = 0; i < allChunks.length; i += BATCH_SIZE) {
+  for (let i = 0; i < n; i += BATCH_SIZE) {
     const batch = allChunks.slice(i, i + BATCH_SIZE);
-    const updates = batch.map((chunk, idx) => {
-      const projIdx = i + idx;
-      return {
-        id: chunk.id,
-        map_x: projection[projIdx][0],
-        map_y: projection[projIdx][1],
-      };
-    });
+    const updates = batch.map((chunk, idx) => ({
+      id: chunk.id,
+      map_x: posX[i + idx],
+      map_y: posY[i + idx],
+    }));
 
     const { error: updateError } = await supabase
       .from('chunks')
@@ -186,7 +280,7 @@ async function runRecompute() {
     updated += updates.length;
 
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-    const saveProgress = 82 + Math.round((batchNum / totalBatches) * 18); // 82-100%
+    const saveProgress = 83 + Math.round((batchNum / totalBatches) * 17);
     setJobStatus({ stage: `Saved batch ${batchNum}/${totalBatches}…`, progress: Math.min(saveProgress, 99) });
   }
 
@@ -199,56 +293,4 @@ async function runRecompute() {
     updated,
     duration_ms: durationMs,
   });
-}
-
-/**
- * Random projection: reduces high-dimensional vectors to targetDims.
- * Uses a seeded Gaussian random matrix (Johnson–Lindenstrauss lemma
- * guarantees approximate distance preservation).
- */
-function randomProject(vectors: number[][], targetDims: number): number[][] {
-  const origDims = vectors[0].length;
-  const scale = 1 / Math.sqrt(targetDims);
-
-  // Generate random projection matrix (origDims × targetDims)
-  // Using simple seeded approach for reproducibility
-  let seed = 42;
-  function nextRand(): number {
-    seed = (seed * 16807 + 0) % 2147483647;
-    return (seed - 1) / 2147483646;
-  }
-  // Box-Muller for Gaussian random numbers
-  function gaussRand(): number {
-    const u1 = nextRand();
-    const u2 = nextRand();
-    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  }
-
-  // Build the projection matrix
-  const projMatrix: number[][] = [];
-  for (let j = 0; j < targetDims; j++) {
-    const col = new Array(origDims);
-    for (let i = 0; i < origDims; i++) {
-      col[i] = gaussRand() * scale;
-    }
-    projMatrix.push(col);
-  }
-
-  // Project each vector
-  const result: number[][] = new Array(vectors.length);
-  for (let v = 0; v < vectors.length; v++) {
-    const vec = vectors[v];
-    const projected = new Array(targetDims);
-    for (let j = 0; j < targetDims; j++) {
-      let sum = 0;
-      const col = projMatrix[j];
-      for (let i = 0; i < origDims; i++) {
-        sum += vec[i] * col[i];
-      }
-      projected[j] = sum;
-    }
-    result[v] = projected;
-  }
-
-  return result;
 }

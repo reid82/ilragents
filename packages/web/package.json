@@ -30,7 +30,6 @@
     "remark-gfm": "^4.0.1",
     "resend": "^6.9.1",
     "tailwind-merge": "^3.5.0",
-    "umap-js": "^1.4.0",
     "zustand": "^5.0.10"
   },
   "devDependencies": {

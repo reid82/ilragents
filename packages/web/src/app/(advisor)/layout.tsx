@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MessageSquare } from "lucide-react";
 import ConversationSidebar from "@/components/ConversationSidebar";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import ProfileModal from "@/components/ProfileModal";
 import { useConversationStore } from "@/lib/stores/conversation-store";
 import { useClientProfileStore } from "@/lib/stores/financial-store";
@@ -54,8 +55,8 @@ export default function AdvisorLayout({ children }: { children: React.ReactNode 
 
   return (
     <div
-      className="flex h-screen text-white overflow-hidden"
-      style={{ background: "var(--surface-0)" }}
+      className="flex text-white overflow-hidden"
+      style={{ background: "var(--surface-0)", height: "100dvh" }}
     >
       {/* Desktop sidebar -- hidden below 1024px */}
       <div className="hidden lg:flex">
@@ -152,7 +153,7 @@ export default function AdvisorLayout({ children }: { children: React.ReactNode 
           </div>
         </div>
 
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
       </div>
 
       {/* Profile modal */}

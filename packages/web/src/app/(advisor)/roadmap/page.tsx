@@ -206,7 +206,7 @@ export default function RoadmapPage() {
               <button
                 key={section.id}
                 onClick={() => scrollToSection(section.id)}
-                className="block w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors"
+                className="block w-full text-left text-sm px-3 py-2.5 rounded-lg transition-colors"
                 style={{
                   color: activeSection === section.id ? 'var(--primary-light)' : 'var(--text-secondary)',
                   fontWeight: activeSection === section.id ? 500 : 400,
@@ -240,7 +240,7 @@ export default function RoadmapPage() {
                   >
                     {/* Timeline dot */}
                     <div
-                      className="relative z-10 flex-shrink-0 w-[19px] h-[19px] rounded-full flex items-center justify-center text-[9px] font-semibold transition-all"
+                      className="relative z-10 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold transition-all"
                       style={{
                         background: isActive ? 'var(--primary)' : 'var(--surface-0)',
                         border: isActive ? '2px solid var(--primary)' : '2px solid var(--border-default)',

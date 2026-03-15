@@ -53,10 +53,13 @@ export default function MessageContextMenu({ text, position, onClose }: MessageC
     onClose();
   }, [text, onClose]);
 
+  const MENU_WIDTH = 160;
+  const MENU_HEIGHT = 100;
+
   const style: React.CSSProperties = {
     position: "fixed", zIndex: 60,
-    left: Math.min(position.x, typeof window !== "undefined" ? window.innerWidth - 160 : position.x),
-    top: Math.min(position.y, typeof window !== "undefined" ? window.innerHeight - 100 : position.y),
+    left: Math.max(8, Math.min(position.x, typeof window !== "undefined" ? window.innerWidth - MENU_WIDTH - 8 : position.x)),
+    top: Math.max(8, Math.min(position.y, typeof window !== "undefined" ? window.innerHeight - MENU_HEIGHT - 8 : position.y)),
   };
 
   return (
@@ -70,6 +73,7 @@ export default function MessageContextMenu({ text, position, onClose }: MessageC
         }}
       >
         <button role="menuitem" onClick={handleCopy}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCopy(); } }}
           className="flex items-center gap-3 w-full px-4 py-3 text-sm transition-colors"
           style={{ color: "var(--text-primary)" }}
         >
@@ -77,6 +81,7 @@ export default function MessageContextMenu({ text, position, onClose }: MessageC
         </button>
         <div style={{ height: "1px", background: "var(--border-subtle)" }} />
         <button role="menuitem" onClick={handleShare}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleShare(); } }}
           className="flex items-center gap-3 w-full px-4 py-3 text-sm transition-colors"
           style={{ color: "var(--text-primary)" }}
         >

@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+
 interface ConfirmDialogProps {
   title: string;
   message: string;
@@ -19,13 +22,28 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+      if (e.key === "Enter") { e.preventDefault(); onConfirm(); }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onConfirm, onCancel]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="alertdialog"
+      aria-modal="true"
       style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
         className="rounded-xl max-w-sm w-full p-6"
         style={{
           background: 'var(--surface-0)',

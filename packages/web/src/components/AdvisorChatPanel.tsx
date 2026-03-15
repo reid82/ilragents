@@ -113,6 +113,7 @@ export default function AdvisorChatPanel({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasAutoSubmitted = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ text: string; position: { x: number; y: number } } | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -162,6 +163,7 @@ export default function AdvisorChatPanel({
   const sendMessageDirect = useCallback(
     async (userMessage: string) => {
       if (isLoading) return;
+      setLastFailedMessage(null);
 
       const userMsg: Message = { role: "user", content: userMessage };
       addMessage(userMsg);
@@ -276,6 +278,7 @@ export default function AdvisorChatPanel({
             ? error.message
             : "Something went wrong";
 
+        setLastFailedMessage(userMessage);
         updateLastMessage({
           role: "assistant",
           content: `Error: ${errorMessage}`,
@@ -298,20 +301,31 @@ export default function AdvisorChatPanel({
     }
   }, [initialPrompt, isLoading, sendMessageDirect]);
 
+  // On mobile, when the virtual keyboard opens the visual viewport shrinks.
+  // We resize the outer chat container to match so the input stays visible
+  // without using transform (which causes floating/overlap issues).
   useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const chatContainer = document.querySelector('[data-chat-root]') as HTMLElement;
+    if (!chatContainer) return;
+
     const handleResize = () => {
-      const keyboardHeight = window.innerHeight - viewport.height;
-      const container = document.querySelector('[data-input-container]') as HTMLElement;
-      if (container) {
-        container.style.transform = keyboardHeight > 50
-          ? `translateY(-${keyboardHeight}px)`
-          : '';
+      const keyboardHeight = window.innerHeight - vv.height;
+      if (keyboardHeight > 50) {
+        chatContainer.style.height = `${vv.height}px`;
+      } else {
+        chatContainer.style.height = '';
       }
     };
-    viewport.addEventListener('resize', handleResize);
-    return () => viewport.removeEventListener('resize', handleResize);
+
+    vv.addEventListener('resize', handleResize);
+    vv.addEventListener('scroll', handleResize);
+    return () => {
+      vv.removeEventListener('resize', handleResize);
+      vv.removeEventListener('scroll', handleResize);
+    };
   }, []);
 
   async function handleSend() {
@@ -347,7 +361,7 @@ ${name}`;
   }
 
   return (
-    <div className="flex flex-col h-full text-white" style={{ background: 'var(--surface-0)' }}>
+    <div className="flex flex-col h-full text-white" data-chat-root style={{ background: 'var(--surface-0)' }}>
       {/* Format selector - desktop only */}
       <div className="hidden lg:flex items-center justify-end gap-2 px-6 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="relative">
@@ -370,7 +384,7 @@ ${name}`;
       </div>
 
       {/* Messages */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-5 sm:space-y-6 relative">
+      <div ref={scrollContainerRef} aria-live="polite" className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-5 sm:space-y-6 relative">
         {messages.length === 0 && (
           <div className="text-center mt-20">
             <p className="text-lg font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
@@ -396,7 +410,7 @@ ${name}`;
             .trim() || rawContent;
 
           return (
-            <div key={i} className="space-y-2 animate-message-in">
+            <article key={i} role="article" className="space-y-2 animate-message-in">
               {/* Date divider */}
               {shouldShowDateDivider(
                 i > 0 ? new Date(messages[i - 1].created_at || Date.now()) : null,
@@ -420,6 +434,7 @@ ${name}`;
                     {/* Avatar */}
                     <div
                       className="w-[32px] h-[32px] rounded-full flex items-center justify-center"
+                      aria-label="ILR Edge avatar"
                       style={{
                         background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
                         boxShadow: '0 0 12px var(--primary-glow)',
@@ -505,7 +520,7 @@ ${name}`;
 
                   {/* Feedback button */}
                   {msg.role === "assistant" && !isLastAssistant && msg.content && (
-                    <div className="flex justify-end mt-2">
+                    <div className="flex justify-end mt-2 min-h-[28px]">
                       <FeedbackButton
                         agentId="ilr-advisor"
                         agentName={ADVISOR_NAME}
@@ -567,7 +582,7 @@ ${name}`;
                   </div>
                 </div>
               )}
-            </div>
+            </article>
           );
         })}
         <ScrollToBottomFAB scrollContainerRef={scrollContainerRef} />
@@ -575,7 +590,22 @@ ${name}`;
       </div>
 
       {/* Input area */}
-      <div className="px-3 sm:px-6 py-3 sm:py-4 pb-safe" data-input-container>
+      <div className="px-3 sm:px-6 py-3 sm:py-4 pb-safe flex-shrink-0">
+        {lastFailedMessage && (
+          <div className="flex items-center justify-center gap-2 py-2">
+            <button
+              onClick={() => {
+                const msg = lastFailedMessage;
+                setLastFailedMessage(null);
+                sendMessageDirect(msg);
+              }}
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--primary)', border: '1px solid var(--primary)' }}
+            >
+              Retry last message
+            </button>
+          </div>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();

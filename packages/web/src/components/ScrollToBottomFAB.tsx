@@ -52,7 +52,7 @@ export default function ScrollToBottomFAB({ scrollContainerRef, newMessageCount 
             background: "var(--primary)", border: "2px solid var(--surface-0)", padding: "0 4px",
           }}
         >
-          {newMessageCount}
+          {newMessageCount > 99 ? "99+" : newMessageCount}
         </span>
       )}
     </button>

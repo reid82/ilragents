@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import type {
   ClientProfile,
@@ -63,10 +63,10 @@ function label(value: string): string {
 }
 
 const inputClass =
-  "rounded-lg px-2 py-1 text-sm text-right w-40 focus:outline-none focus:ring-1 transition-colors";
+  "rounded-lg px-2 py-1 text-sm text-right w-28 sm:w-40 focus:outline-none focus:ring-1 transition-colors";
 
 const selectClass =
-  "rounded-lg px-2 py-1 text-sm w-40 focus:outline-none focus:ring-1 transition-colors";
+  "rounded-lg px-2 py-1 text-sm w-28 sm:w-40 focus:outline-none focus:ring-1 transition-colors";
 
 const inputStyle = {
   background: 'var(--surface-2)',
@@ -388,6 +388,15 @@ function EditablePropertyRow({
 
 export default function ProfileModal({ profile, onSave, onClose }: ProfileModalProps) {
   const [draft, setDraft] = useState<ClientProfile>(() => structuredClone(profile));
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
 
   function upd<K extends keyof ClientProfile>(
     section: K,
@@ -425,6 +434,10 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
 
   return (
     <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Financial profile editor"
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => {
@@ -622,7 +635,7 @@ export default function ProfileModal({ profile, onSave, onClose }: ProfileModalP
                     <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Profile completeness</span>
                     <span className="text-sm font-medium text-white">{pct}%</span>
                   </div>
-                  <div className="w-full rounded-full h-2" style={{ background: 'var(--surface-3)' }}>
+                  <div className="w-full rounded-full h-2" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Profile completeness" style={{ background: 'var(--surface-3)' }}>
                     <div
                       className="h-2 rounded-full transition-all"
                       style={{ width: `${pct}%`, background: 'var(--primary)' }}

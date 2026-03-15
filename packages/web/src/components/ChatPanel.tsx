@@ -303,7 +303,7 @@ ${name}`;
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
       {/* Header */}
-      <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+      <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 flex-shrink-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {showBackLink && (
             <Link

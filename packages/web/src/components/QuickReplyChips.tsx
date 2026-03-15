@@ -18,7 +18,7 @@ export default function QuickReplyChips({ options, onSelect, disabled }: QuickRe
   }, [disabled, selected, onSelect]);
 
   return (
-    <div className="flex flex-wrap gap-2 pl-[38px] mt-2">
+    <div className="flex flex-wrap gap-2 pl-[38px] sm:pl-[46px] mt-2">
       {options.map((option) => (
         <button
           key={option} onClick={() => handleSelect(option)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Send, CheckCircle } from "lucide-react";
 import type { SpecialistTeam } from "@/lib/specialists";
 
@@ -23,6 +23,16 @@ export default function EmailDraftModal({
   onClose,
   onSent,
 }: EmailDraftModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
   const [editSubject, setEditSubject] = useState(subject);
   const [editBody, setEditBody] = useState(body);
   const [editReplyTo, setEditReplyTo] = useState(replyTo);
@@ -73,8 +83,13 @@ export default function EmailDraftModal({
 
   return (
     <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Draft email"
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
@@ -154,7 +169,7 @@ export default function EmailDraftModal({
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
                   rows={10}
-                  className="w-full rounded-lg px-3 py-2 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                  className="w-full rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                   style={inputStyle}
                 />
               </div>

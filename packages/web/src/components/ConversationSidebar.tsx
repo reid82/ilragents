@@ -80,7 +80,7 @@ export default function ConversationSidebar({
   }
 
   const sidebarContent = (
-    <div className="flex flex-col h-full w-[300px]" style={{ background: 'var(--surface-1)', borderRight: '1px solid var(--border-subtle)' }}>
+    <div className="flex flex-col h-full w-[260px] xl:w-[300px]" style={{ background: 'var(--surface-1)', borderRight: '1px solid var(--border-subtle)' }}>
       {/* Header: Logo + New Chat */}
       <div className="p-3 flex-shrink-0 space-y-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <Link
@@ -164,7 +164,7 @@ export default function ConversationSidebar({
                 >
                   <button
                     onClick={() => handleConversationClick(conv.id)}
-                    className="w-full text-left px-3 py-2 text-[13px] transition-colors rounded-lg mx-1"
+                    className="w-full text-left px-3 py-2 text-[13px] transition-colors rounded-lg mx-1 active:scale-[0.98]"
                     style={{
                       maxWidth: "calc(100% - 8px)",
                       background: activeConversationId === conv.id ? 'var(--primary-subtle)' : 'transparent',

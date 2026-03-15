@@ -64,7 +64,7 @@ export default function BottomSheet({ isOpen, onClose, title, children }: Bottom
     const sheet = sheetRef.current;
     if (!sheet) return;
     const sheetRect = sheet.getBoundingClientRect();
-    if (e.touches[0].clientY - sheetRect.top > 44) return;
+    if (e.touches[0].clientY - sheetRect.top > 90) return;
     isDragging.current = true;
     dragStartY.current = e.touches[0].clientY;
     startHeight.current = sheetHeight;

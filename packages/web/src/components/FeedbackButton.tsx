@@ -25,7 +25,7 @@ export default function FeedbackButton({
   const popoverRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Close popover on outside click
+  // Close popover on outside click or Escape
   useEffect(() => {
     if (!isOpen) return;
     function handleClick(e: MouseEvent) {
@@ -33,8 +33,15 @@ export default function FeedbackButton({
         setIsOpen(false);
       }
     }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsOpen(false);
+    }
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
   }, [isOpen]);
 
   // Focus textarea when opened
@@ -114,7 +121,7 @@ export default function FeedbackButton({
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute bottom-full right-0 mb-2 w-72 rounded-lg shadow-xl z-50"
+          className="absolute bottom-full right-0 mb-2 w-64 sm:w-72 rounded-lg shadow-xl z-50"
           style={{ background: 'var(--surface-0)', border: '1px solid var(--border-default)' }}
         >
           <div className="p-3">

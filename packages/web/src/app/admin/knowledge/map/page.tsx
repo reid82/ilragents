@@ -8,7 +8,6 @@ import Link from 'next/link';
 interface MapPoint {
   id: string;
   source_id: string;
-  agent: string;
   content_type: string;
   title: string;
   topics: string[];
@@ -22,12 +21,12 @@ interface MapResponse {
   points: MapPoint[];
   stats: {
     total: number;
-    byAgent: Record<string, number>;
     byContentType: Record<string, number>;
+    byTopic: Record<string, number>;
   };
 }
 
-type ColorMode = 'agent' | 'content_type' | 'topic';
+type ColorMode = 'topic' | 'content_type' | 'source';
 
 // --- Constants ---
 
@@ -37,17 +36,29 @@ const SUB_TABS = [
   { label: 'Gaps', href: '/admin/knowledge/gaps' },
 ];
 
-const COLORS = [
-  '#34d399', // emerald-400
-  '#60a5fa', // blue-400
-  '#f472b6', // pink-400
-  '#fbbf24', // amber-400
-  '#a78bfa', // violet-400
-  '#fb923c', // orange-400
-  '#2dd4bf', // teal-400
-  '#e879f9', // fuchsia-400
-  '#4ade80', // green-400
-  '#f87171', // red-400
+const TOPIC_COLORS: Record<string, string> = {
+  'Cash Cows':          '#34d399', // emerald
+  'No Money Down':      '#60a5fa', // blue
+  'Chunk Deals':        '#f472b6', // pink
+  'Depreciation':       '#fbbf24', // amber
+  'Renovation':         '#a78bfa', // violet
+  'Due Diligence':      '#fb923c', // orange
+  'Deal Finding':       '#2dd4bf', // teal
+  'Finance & Lending':  '#e879f9', // fuchsia
+  'Strata & Body Corp': '#4ade80', // green
+  'Negotiation':        '#f87171', // red
+  'Mindset & Strategy': '#38bdf8', // sky
+  'Legal & Compliance': '#facc15', // yellow
+  'Tenant Management':  '#c084fc', // purple
+  'Market Analysis':    '#fb7185', // rose
+  'Case Studies':       '#22d3ee', // cyan
+  'Tax & Structure':    '#a3e635', // lime
+  'General':            '#71717a', // zinc
+};
+
+const FALLBACK_COLORS = [
+  '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#a78bfa',
+  '#fb923c', '#2dd4bf', '#e879f9', '#4ade80', '#f87171',
 ];
 
 const DPR = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
@@ -58,7 +69,7 @@ function buildColorMap(keys: string[]): Record<string, string> {
   const map: Record<string, string> = {};
   const sorted = [...new Set(keys)].sort();
   sorted.forEach((key, i) => {
-    map[key] = COLORS[i % COLORS.length];
+    map[key] = FALLBACK_COLORS[i % FALLBACK_COLORS.length];
   });
   return map;
 }
@@ -68,17 +79,56 @@ function getPointColor(
   mode: ColorMode,
   colorMap: Record<string, string>,
 ): string {
-  if (mode === 'agent') return colorMap[point.agent] || COLORS[0];
-  if (mode === 'content_type') return colorMap[point.content_type] || COLORS[0];
-  // topic mode: use first topic
-  const topic = point.topics?.[0] || 'Unknown';
-  return colorMap[topic] || COLORS[0];
+  if (mode === 'topic') {
+    const topic = point.topics?.[0] || 'General';
+    return TOPIC_COLORS[topic] || colorMap[topic] || '#71717a';
+  }
+  if (mode === 'content_type') return colorMap[point.content_type] || FALLBACK_COLORS[0];
+  // source mode: color by title
+  return colorMap[point.title] || FALLBACK_COLORS[0];
 }
 
 function getPointRadius(wordCount: number): number {
-  if (wordCount < 100) return 4;
-  if (wordCount < 500) return 5;
-  return 6;
+  if (wordCount < 100) return 3;
+  if (wordCount < 500) return 4;
+  return 5;
+}
+
+// Build kNN edges client-side from spatial proximity
+function buildEdges(points: MapPoint[], k: number): [number, number][] {
+  const n = points.length;
+  if (n < 2) return [];
+
+  const edges: [number, number][] = [];
+  const maxK = Math.min(k, n - 1);
+
+  for (let i = 0; i < n; i++) {
+    // Find k nearest in 2D screen space
+    const dists: { j: number; d: number }[] = [];
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const dx = points[i].map_x - points[j].map_x;
+      const dy = points[i].map_y - points[j].map_y;
+      dists.push({ j, d: dx * dx + dy * dy });
+    }
+    dists.sort((a, b) => a.d - b.d);
+    for (let ki = 0; ki < maxK; ki++) {
+      const j = dists[ki].j;
+      // Avoid duplicate edges
+      if (i < j) {
+        edges.push([i, j]);
+      }
+    }
+  }
+
+  // Deduplicate
+  const seen = new Set<string>();
+  return edges.filter(([a, b]) => {
+    const key = `${a}-${b}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // --- Component ---
@@ -91,8 +141,9 @@ export default function KnowledgeMapPage() {
   const [error, setError] = useState<string | null>(null);
 
   // UI state
-  const [colorMode, setColorMode] = useState<ColorMode>('agent');
-  const [agentFilter, setAgentFilter] = useState('all');
+  const [colorMode, setColorMode] = useState<ColorMode>('topic');
+  const [topicFilter, setTopicFilter] = useState('all');
+  const [showEdges, setShowEdges] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState<MapPoint | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
@@ -129,30 +180,44 @@ export default function KnowledgeMapPage() {
   }, [fetchMapData]);
 
   // --- Derived data ---
-  const agents = useMemo(() => {
-    const set = new Set(points.map(p => p.agent));
+  const topics = useMemo(() => {
+    const set = new Set(points.flatMap(p => p.topics || []));
     return Array.from(set).sort();
   }, [points]);
 
   const filteredPoints = useMemo(() => {
-    if (agentFilter === 'all') return points;
-    return points.filter(p => p.agent === agentFilter);
-  }, [points, agentFilter]);
+    if (topicFilter === 'all') return points;
+    return points.filter(p => p.topics?.includes(topicFilter));
+  }, [points, topicFilter]);
 
   const mappedPoints = useMemo(() => {
     return filteredPoints.filter(p => p.map_x != null && p.map_y != null);
   }, [filteredPoints]);
 
+  const edges = useMemo(() => {
+    if (!showEdges || mappedPoints.length > 3000) return [];
+    return buildEdges(mappedPoints, 3);
+  }, [mappedPoints, showEdges]);
+
   const colorMap = useMemo(() => {
-    if (colorMode === 'agent') return buildColorMap(points.map(p => p.agent));
+    if (colorMode === 'topic') {
+      const allTopics = points.flatMap(p => p.topics?.length ? [p.topics[0]] : ['General']);
+      return buildColorMap(allTopics);
+    }
     if (colorMode === 'content_type') return buildColorMap(points.map(p => p.content_type));
-    const allTopics = points.flatMap(p => p.topics?.length ? [p.topics[0]] : ['Unknown']);
-    return buildColorMap(allTopics);
+    return buildColorMap(points.map(p => p.title));
   }, [points, colorMode]);
 
   const legendEntries = useMemo(() => {
+    if (colorMode === 'topic') {
+      // Use TOPIC_COLORS for legend when in topic mode
+      const usedTopics = new Set(points.flatMap(p => p.topics || []));
+      return Object.entries(TOPIC_COLORS)
+        .filter(([topic]) => usedTopics.has(topic))
+        .sort(([a], [b]) => a.localeCompare(b));
+    }
     return Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b));
-  }, [colorMap]);
+  }, [colorMap, colorMode, points]);
 
   // --- Resize observer ---
   useEffect(() => {
@@ -214,7 +279,7 @@ export default function KnowledgeMapPage() {
     ctx.fillRect(0, 0, width, height);
 
     // Draw subtle grid
-    ctx.strokeStyle = 'rgba(63, 63, 70, 0.3)'; // zinc-700 faint
+    ctx.strokeStyle = 'rgba(63, 63, 70, 0.2)';
     ctx.lineWidth = 0.5;
     const gridStep = 50;
     for (let gx = 0; gx < width; gx += gridStep) {
@@ -230,6 +295,25 @@ export default function KnowledgeMapPage() {
       ctx.stroke();
     }
 
+    // Draw edges first (behind points)
+    if (edges.length > 0) {
+      ctx.lineWidth = 0.5;
+      for (const [i, j] of edges) {
+        const pi = mappedPoints[i];
+        const pj = mappedPoints[j];
+        const sx1 = pi.map_x * scale + offsetX;
+        const sy1 = pi.map_y * scale + offsetY;
+        const sx2 = pj.map_x * scale + offsetX;
+        const sy2 = pj.map_y * scale + offsetY;
+
+        ctx.beginPath();
+        ctx.moveTo(sx1, sy1);
+        ctx.lineTo(sx2, sy2);
+        ctx.strokeStyle = 'rgba(113, 113, 122, 0.12)'; // very faint zinc
+        ctx.stroke();
+      }
+    }
+
     // Draw points
     for (const point of mappedPoints) {
       const sx = point.map_x * scale + offsetX;
@@ -239,14 +323,14 @@ export default function KnowledgeMapPage() {
 
       // Glow
       ctx.beginPath();
-      ctx.arc(sx, sy, r + 3, 0, Math.PI * 2);
-      ctx.fillStyle = color + '20'; // 12% opacity
+      ctx.arc(sx, sy, r + 2, 0, Math.PI * 2);
+      ctx.fillStyle = color + '18';
       ctx.fill();
 
       // Point
       ctx.beginPath();
       ctx.arc(sx, sy, r, 0, Math.PI * 2);
-      ctx.fillStyle = color;
+      ctx.fillStyle = color + 'cc'; // slightly transparent
       ctx.fill();
 
       // Highlight hovered or selected
@@ -261,7 +345,7 @@ export default function KnowledgeMapPage() {
         ctx.stroke();
       }
     }
-  }, [canvasSize, mappedPoints, colorMode, colorMap, hoveredPoint, selectedPoint]);
+  }, [canvasSize, mappedPoints, edges, colorMode, colorMap, hoveredPoint, selectedPoint]);
 
   useEffect(() => {
     cancelAnimationFrame(animFrameRef.current);
@@ -284,7 +368,7 @@ export default function KnowledgeMapPage() {
     for (const point of mappedPoints) {
       const sx = point.map_x * scale + offsetX;
       const sy = point.map_y * scale + offsetY;
-      const r = getPointRadius(point.word_count) + 4; // extra tolerance
+      const r = getPointRadius(point.word_count) + 4;
       const dx = mx - sx;
       const dy = my - sy;
       const dist = dx * dx + dy * dy;
@@ -334,7 +418,6 @@ export default function KnowledgeMapPage() {
     const dy = Math.abs(e.clientY - lastMouseRef.current.y);
     isDraggingRef.current = false;
 
-    // If barely moved, treat as click
     if (dx < 3 && dy < 3) {
       const hit = findPointAt(e.clientX, e.clientY);
       setSelectedPoint(hit);
@@ -358,7 +441,6 @@ export default function KnowledgeMapPage() {
     const t = transformRef.current;
     const newScale = t.scale * zoomFactor;
 
-    // Zoom toward cursor
     t.offsetX = mx - (mx - t.offsetX) * zoomFactor;
     t.offsetY = my - (my - t.offsetY) * zoomFactor;
     t.scale = newScale;
@@ -420,7 +502,7 @@ export default function KnowledgeMapPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs text-zinc-500">Color by</span>
           <div className="flex gap-1">
-            {(['agent', 'content_type', 'topic'] as const).map(mode => (
+            {(['topic', 'content_type', 'source'] as const).map(mode => (
               <button
                 key={mode}
                 onClick={() => setColorMode(mode)}
@@ -430,211 +512,158 @@ export default function KnowledgeMapPage() {
                     : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
                 }`}
               >
-                {mode === 'agent' ? 'Agent' : mode === 'content_type' ? 'Content Type' : 'Topic'}
+                {mode === 'topic' ? 'Topic' : mode === 'content_type' ? 'Type' : 'Source'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Filter by agent */}
+        {/* Filter by topic */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-zinc-500">Filter</span>
           <select
-            value={agentFilter}
-            onChange={e => setAgentFilter(e.target.value)}
+            value={topicFilter}
+            onChange={e => setTopicFilter(e.target.value)}
             className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 appearance-none pr-7"
           >
-            <option value="all">All Agents</option>
-            {agents.map(a => (
-              <option key={a} value={a}>{a}</option>
+            <option value="all">All Topics</option>
+            {topics.map(t => (
+              <option key={t} value={t}>{t}</option>
             ))}
           </select>
         </div>
 
-        {/* Recompute info */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-zinc-600 font-mono">
-            Recompute: npx tsx scripts/compute-map.ts
-          </span>
-        </div>
+        {/* Show edges toggle */}
+        <button
+          onClick={() => setShowEdges(!showEdges)}
+          className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+            showEdges
+              ? 'bg-zinc-700/50 text-zinc-300'
+              : 'text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800'
+          }`}
+        >
+          {showEdges ? 'Edges on' : 'Edges off'}
+        </button>
 
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {/* Chunk count */}
+        <span className="text-xs text-zinc-600">
+          {mappedPoints.length.toLocaleString()} chunks
+        </span>
+      </div>
+
+      {/* Legend (topic colors) */}
+      {colorMode === 'topic' && legendEntries.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
           {legendEntries.map(([label, color]) => (
-            <div key={label} className="flex items-center gap-1.5">
+            <button
+              key={label}
+              onClick={() => setTopicFilter(topicFilter === label ? 'all' : label)}
+              className={`flex items-center gap-1.5 transition-opacity ${
+                topicFilter !== 'all' && topicFilter !== label ? 'opacity-30' : 'opacity-100'
+              }`}
+            >
               <span
                 className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: color }}
               />
-              <span className="text-[10px] text-zinc-500 truncate max-w-[100px]">{label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats badges */}
-      {stats && (
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400">
-            {stats.total} chunks mapped
-          </span>
-          {Object.entries(stats.byAgent).sort(([a], [b]) => a.localeCompare(b)).map(([agent, count]) => (
-            <span
-              key={agent}
-              className="text-xs px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-500"
-            >
-              {agent}: {count}
-            </span>
+              <span className="text-[11px] text-zinc-400">{label}</span>
+            </button>
           ))}
         </div>
       )}
 
-      {/* Error */}
-      {error && (
-        <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">
+      {/* Main content */}
+      {error ? (
+        <div className="flex items-center justify-center flex-1 text-red-400 text-sm">
           {error}
         </div>
-      )}
-
-      {/* Main canvas area + detail panel */}
-      <div className="flex-1 flex gap-4 min-h-0">
-        {/* Canvas container */}
-        <div
-          ref={containerRef}
-          className="flex-1 relative bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden"
-          style={{ minHeight: 400 }}
-        >
-          {!hasMapData ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
-              <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" />
-                </svg>
-              </div>
-              <p className="text-zinc-400 text-sm font-medium mb-2">No map data yet</p>
-              <p className="text-zinc-600 text-xs max-w-sm mb-3">
-                Run the compute script locally to generate 2D coordinates from embeddings.
-              </p>
-              <code className="text-[11px] text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800">
+      ) : !hasMapData ? (
+        <div className="flex items-center justify-center flex-1">
+          <div className="text-center space-y-3">
+            <p className="text-zinc-400 text-sm">No map data yet.</p>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <p className="text-zinc-500 text-xs mb-2">Generate the map by running:</p>
+              <code className="text-emerald-400 text-sm font-mono">
                 cd packages/pipeline && npx tsx scripts/compute-map.ts
               </code>
             </div>
-          ) : (
-            <>
-              <canvas
-                ref={canvasRef}
-                width={canvasSize.width * DPR}
-                height={canvasSize.height * DPR}
-                style={{ width: canvasSize.width, height: canvasSize.height, cursor: isDraggingRef.current ? 'grabbing' : 'grab' }}
-                onMouseMove={handleMouseMove}
-                onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-                onWheel={handleWheel}
-              />
+          </div>
+        </div>
+      ) : (
+        <div ref={containerRef} className="relative flex-1 min-h-0 rounded-xl overflow-hidden border border-zinc-800">
+          <canvas
+            ref={canvasRef}
+            style={{ width: canvasSize.width, height: canvasSize.height, cursor: isDraggingRef.current ? 'grabbing' : 'crosshair' }}
+            onMouseMove={handleMouseMove}
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            onWheel={handleWheel}
+          />
 
-              {/* Hover tooltip */}
-              {hoveredPoint && (
-                <div
-                  className="absolute pointer-events-none z-10 bg-zinc-900 border border-zinc-700 rounded-lg p-3 shadow-xl max-w-xs"
-                  style={{
-                    left: tooltipPos.x,
-                    top: tooltipPos.y,
-                    transform: tooltipPos.x > canvasSize.width - 260 ? 'translateX(-110%)' : undefined,
-                  }}
-                >
-                  <p className="text-sm font-medium text-white truncate">{hoveredPoint.title}</p>
-                  <p className="text-xs text-zinc-400 mt-1">{hoveredPoint.agent}</p>
-                  <p className="text-xs text-zinc-500 mt-1.5 line-clamp-3">
-                    {hoveredPoint.snippet?.slice(0, 100)}
-                    {(hoveredPoint.snippet?.length || 0) > 100 ? '...' : ''}
-                  </p>
-                  <p className="text-[10px] text-zinc-600 mt-1.5">{hoveredPoint.word_count} words</p>
+          {/* Tooltip */}
+          {hoveredPoint && (
+            <div
+              className="absolute pointer-events-none bg-zinc-900/95 border border-zinc-700 rounded-lg p-3 text-xs shadow-xl max-w-xs z-10"
+              style={{ left: tooltipPos.x, top: tooltipPos.y }}
+            >
+              <div className="font-medium text-zinc-200 mb-1 truncate">{hoveredPoint.title}</div>
+              <div className="text-zinc-500 mb-1">{hoveredPoint.content_type} &middot; {hoveredPoint.word_count} words</div>
+              {hoveredPoint.topics?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {hoveredPoint.topics.map(t => (
+                    <span
+                      key={t}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                      style={{ backgroundColor: (TOPIC_COLORS[t] || '#71717a') + '25', color: TOPIC_COLORS[t] || '#a1a1aa' }}
+                    >
+                      {t}
+                    </span>
+                  ))}
                 </div>
               )}
-            </>
+              <div className="text-zinc-500 line-clamp-2">{hoveredPoint.snippet}</div>
+            </div>
+          )}
+
+          {/* Selected point detail panel */}
+          {selectedPoint && (
+            <div className="absolute bottom-4 left-4 right-4 bg-zinc-900/95 border border-zinc-700 rounded-xl p-4 shadow-xl z-10">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-zinc-200 truncate">{selectedPoint.title}</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {selectedPoint.content_type} &middot; {selectedPoint.word_count} words
+                  </p>
+                  {selectedPoint.topics?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {selectedPoint.topics.map(t => (
+                        <span
+                          key={t}
+                          className="px-2 py-0.5 rounded text-[11px] font-medium"
+                          style={{ backgroundColor: (TOPIC_COLORS[t] || '#71717a') + '25', color: TOPIC_COLORS[t] || '#a1a1aa' }}
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-zinc-400 mt-2 line-clamp-3">{selectedPoint.snippet}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedPoint(null)}
+                  className="text-zinc-500 hover:text-zinc-300 text-lg leading-none shrink-0"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
           )}
         </div>
-
-        {/* Detail panel */}
-        {selectedPoint && (
-          <div className="w-96 shrink-0 bg-zinc-900 border border-zinc-800 rounded-xl overflow-y-auto flex flex-col">
-            {/* Header */}
-            <div className="flex items-start justify-between p-4 border-b border-zinc-800">
-              <h3 className="text-sm font-medium text-white pr-4 leading-snug">{selectedPoint.title}</h3>
-              <button
-                onClick={() => setSelectedPoint(null)}
-                className="text-zinc-500 hover:text-zinc-300 shrink-0 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Meta */}
-            <div className="p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-wide">Agent</p>
-                  <p className="text-sm text-zinc-300 mt-0.5">{selectedPoint.agent}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-wide">Content Type</p>
-                  <p className="text-sm text-zinc-300 mt-0.5">{selectedPoint.content_type}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-wide">Word Count</p>
-                  <p className="text-sm text-zinc-300 mt-0.5">{selectedPoint.word_count}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-wide">Source</p>
-                  <p className="text-sm text-zinc-500 mt-0.5 truncate">{selectedPoint.source_id}</p>
-                </div>
-              </div>
-
-              {/* Topics */}
-              {selectedPoint.topics && selectedPoint.topics.length > 0 && (
-                <div>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-wide mb-1.5">Topics</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedPoint.topics.map(topic => (
-                      <span
-                        key={topic}
-                        className="text-[10px] px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded-full border border-zinc-700"
-                      >
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Snippet */}
-              <div>
-                <p className="text-[10px] text-zinc-600 uppercase tracking-wide mb-1.5">Snippet</p>
-                <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                  {selectedPoint.snippet}
-                </p>
-              </div>
-
-              {/* Link to Manager */}
-              <Link
-                href={`/admin/knowledge?source=${selectedPoint.source_id}`}
-                className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors mt-2"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
-                View in Manager
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

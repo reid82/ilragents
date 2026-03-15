@@ -12,7 +12,6 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseClient();
 
     const contentLayer = req.nextUrl.searchParams.get('content_layer') || 'raw';
-    const agent = req.nextUrl.searchParams.get('agent');
 
     // Check if map_x/map_y columns exist by doing a minimal probe query
     const { error: probeError } = await supabase
@@ -22,58 +21,66 @@ export async function GET(req: NextRequest) {
 
     const hasMapColumns = !probeError || probeError.code !== '42703';
 
-    let query = supabase
-      .from('chunks')
-      .select(
-        hasMapColumns
-          ? 'id, source_id, agent, content_type, title, topics, word_count, map_x, map_y, content_layer, text'
-          : 'id, source_id, agent, content_type, title, topics, word_count, content_layer, text'
-      )
-      .eq('content_layer', contentLayer);
+    const columns = hasMapColumns
+      ? 'id, source_id, content_type, title, topics, word_count, map_x, map_y, text'
+      : 'id, source_id, content_type, title, topics, word_count, text';
 
-    if (hasMapColumns) {
-      query = query.not('map_x', 'is', null).not('map_y', 'is', null);
-    }
-
-    if (agent) {
-      query = query.eq('agent', agent);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
+    // Paginate to get all rows (Supabase default limit is 1000)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const points = ((data || []) as any[]).map((chunk) => ({
+    const allData: any[] = [];
+    const pageSize = 1000;
+    let offset = 0;
+
+    while (true) {
+      let query = supabase
+        .from('chunks')
+        .select(columns)
+        .eq('content_layer', contentLayer)
+        .range(offset, offset + pageSize - 1);
+
+      if (hasMapColumns) {
+        query = query.not('map_x', 'is', null).not('map_y', 'is', null);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allData.push(...data);
+      if (data.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    const points = allData.map((chunk) => ({
       id: chunk.id,
       source_id: chunk.source_id,
-      agent: chunk.agent,
       content_type: chunk.content_type,
       title: chunk.title,
-      topics: chunk.topics,
+      topics: chunk.topics || [],
       word_count: chunk.word_count,
       map_x: chunk.map_x ?? null,
       map_y: chunk.map_y ?? null,
-      content_layer: chunk.content_layer,
-      snippet: typeof chunk.text === 'string' ? chunk.text.substring(0, 100) : '',
+      snippet: typeof chunk.text === 'string' ? chunk.text.substring(0, 120) : '',
     }));
 
-    const byAgent: Record<string, number> = {};
     const byContentType: Record<string, number> = {};
+    const byTopic: Record<string, number> = {};
 
     for (const p of points) {
-      const agentKey = p.agent || 'unknown';
-      byAgent[agentKey] = (byAgent[agentKey] || 0) + 1;
-
       const typeKey = p.content_type || 'unknown';
       byContentType[typeKey] = (byContentType[typeKey] || 0) + 1;
+
+      for (const t of p.topics) {
+        byTopic[t] = (byTopic[t] || 0) + 1;
+      }
     }
 
     return NextResponse.json({
       points,
       stats: {
         total: points.length,
-        byAgent,
         byContentType,
+        byTopic,
       },
       migration_needed: !hasMapColumns,
     });
